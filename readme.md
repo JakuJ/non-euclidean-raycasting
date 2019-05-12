@@ -1,3 +1,5 @@
 # Non-Euclidean Raycasting
 
-Work in progress
+WORK IN PROGRESS
+
+![A screenshot from the app](./Resources/screenshot.png)
