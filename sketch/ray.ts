@@ -1,6 +1,6 @@
 class Ray {
     public pos: p5.Vector;
-    private dir: p5.Vector;
+    public dir: p5.Vector;
     private _angle: number;
 
     constructor(x: number, y: number, a: number) {
@@ -17,8 +17,9 @@ class Ray {
         return this._angle;
     }
 
-    cast(shape: IShape): p5.Vector {
+    cast(shape: IShape) {
         var closest: p5.Vector;
+        var target: Segment;
         var dist = Infinity;
 
         for (let segment of shape.getSegments()) {
@@ -28,10 +29,13 @@ class Ray {
                 if (d < dist) {
                     dist = d;
                     closest = pt;
+                    target = segment;
                 }
             }
         }
-        return closest;
+        if (closest) {
+            return { point: closest, segment: target };
+        }
     }
 
     private castSegment(wall: Segment): p5.Vector {

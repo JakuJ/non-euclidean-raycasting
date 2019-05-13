@@ -4,10 +4,10 @@ class Actor {
     fov: number;
     rays: Ray[];
 
-    constructor(x: number, y: number, nRays: number = 150) {
+    constructor(x: number, y: number, nRays: number = 200) {
         this.pos = p.createVector(x, y);
-        this.angle = p.PI;
-        this.fov = p.radians(45);
+        this.angle = 0;
+        this.fov = p.radians(60);
 
         this.rays = new Array(nRays);
         for (let i = 0, a = this.angle + this.fov / 2; i < nRays; i++ , a -= this.fov / nRays) {
@@ -15,10 +15,16 @@ class Actor {
         }
     }
 
-    update() {
-        this.pos.x = p.mouseX;
-        this.pos.y = p.mouseY;
+    move(dx: number, dy: number) {
+        const front = p5.Vector.fromAngle(this.angle);
+        front.setMag(dx);
+        const side = p5.Vector.fromAngle(this.angle + p.PI / 2);
+        side.setMag(dy);
 
+        this.pos = this.pos.add(front).add(side);
+    }
+
+    update() {
         for (let i = 0, a = this.angle - this.fov / 2; i < this.rays.length; i++ , a += this.fov / this.rays.length) {
             this.rays[i].pos = this.pos;
             this.rays[i].angle = a;
@@ -26,37 +32,50 @@ class Actor {
     }
 
     raycast(shapes: IShape[]) {
-        for (let ray of this.rays) {
-            var closest: p5.Vector = null;
+        this.rays.forEach((ray, i) => {
+            var collided: { point: p5.Vector, segment: Segment } = null;
             var dist = Infinity;
 
             for (let shape of shapes) {
-                const pt = ray.cast(shape);
-                if (pt) {
-                    const d = p.dist(this.pos.x, this.pos.y, pt.x, pt.y);
+                const t = ray.cast(shape);
+                if (t) {
+                    const d = p.dist(this.pos.x, this.pos.y, t.point.x, t.point.y);
                     if (d < dist) {
                         dist = d;
-                        closest = pt;
+                        collided = t;
                     }
                 }
             }
-            if (closest) {
-                p.stroke(255, 0, 0);
+            if (collided) {
+                const closest = collided.point;
+                p.stroke(255, 150);
                 p.line(ray.pos.x, ray.pos.y, closest.x, closest.y);
 
-                // render 2.5D view on the right hand side
-                const offset = p.map(ray.angle, this.angle - this.fov / 2, this.angle + this.fov / 2, p.width / 2, p.width);
-                const w = p.width / 2 / this.rays.length;
-                const h = p.map(p.abs(closest.x - this.pos.x), 0, p.width / 2, p.height, 0);
-                const alpha = p.map(h, 0, p.height, 0, 255);
+                // render 3D view on the right hand side
+                const sceneW = p.width / 2;
 
-                p.fill(255, alpha);
-                p.noStroke();
+                p.push();
+                p.translate(sceneW, 0);
+
+                const sq = dist * dist;
+                const wSq = sceneW * sceneW;
+
+                const alpha = ray.angle - this.angle;
+                const offset = p.map(ray.angle, this.angle - this.fov / 2, this.angle + this.fov / 2, 0, sceneW);
+                const w = sceneW / this.rays.length;
+
+                const cameraDist = dist * p.cos(alpha);
+                const h = 50 / cameraDist * p.height;
+
+                const clr = collided.segment.c;
+
+                p.fill(p.red(clr), p.green(clr), p.blue(clr), p.map(sq, 0, wSq, 255, 0));
                 p.rectMode(p.CENTER);
-                p.rect(offset + w / 2, p.height / 2, w, h);
-
+                p.noStroke();
+                p.rect(offset + w, p.height / 2, w + 1, h);
+                p.pop();
             }
-        }
+        });
     }
 
     show() {

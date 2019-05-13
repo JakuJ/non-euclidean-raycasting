@@ -1,51 +1,65 @@
 var Actor = (function () {
     function Actor(x, y, nRays) {
-        if (nRays === void 0) { nRays = 150; }
+        if (nRays === void 0) { nRays = 200; }
         this.pos = p.createVector(x, y);
-        this.angle = p.PI;
-        this.fov = p.radians(45);
+        this.angle = 0;
+        this.fov = p.radians(60);
         this.rays = new Array(nRays);
         for (var i = 0, a = this.angle + this.fov / 2; i < nRays; i++, a -= this.fov / nRays) {
             this.rays[i] = new Ray(this.pos.x, this.pos.y, a);
         }
     }
+    Actor.prototype.move = function (dx, dy) {
+        var front = p5.Vector.fromAngle(this.angle);
+        front.setMag(dx);
+        var side = p5.Vector.fromAngle(this.angle + p.PI / 2);
+        side.setMag(dy);
+        this.pos = this.pos.add(front).add(side);
+    };
     Actor.prototype.update = function () {
-        this.pos.x = p.mouseX;
-        this.pos.y = p.mouseY;
         for (var i = 0, a = this.angle - this.fov / 2; i < this.rays.length; i++, a += this.fov / this.rays.length) {
             this.rays[i].pos = this.pos;
             this.rays[i].angle = a;
         }
     };
     Actor.prototype.raycast = function (shapes) {
-        for (var _i = 0, _a = this.rays; _i < _a.length; _i++) {
-            var ray = _a[_i];
-            var closest = null;
+        var _this = this;
+        this.rays.forEach(function (ray, i) {
+            var collided = null;
             var dist = Infinity;
-            for (var _b = 0, shapes_1 = shapes; _b < shapes_1.length; _b++) {
-                var shape = shapes_1[_b];
-                var pt = ray.cast(shape);
-                if (pt) {
-                    var d = p.dist(this.pos.x, this.pos.y, pt.x, pt.y);
+            for (var _i = 0, shapes_1 = shapes; _i < shapes_1.length; _i++) {
+                var shape = shapes_1[_i];
+                var t = ray.cast(shape);
+                if (t) {
+                    var d = p.dist(_this.pos.x, _this.pos.y, t.point.x, t.point.y);
                     if (d < dist) {
                         dist = d;
-                        closest = pt;
+                        collided = t;
                     }
                 }
             }
-            if (closest) {
-                p.stroke(255, 0, 0);
+            if (collided) {
+                var closest = collided.point;
+                p.stroke(255, 150);
                 p.line(ray.pos.x, ray.pos.y, closest.x, closest.y);
-                var offset = p.map(ray.angle, this.angle - this.fov / 2, this.angle + this.fov / 2, p.width / 2, p.width);
-                var w = p.width / 2 / this.rays.length;
-                var h = p.map(p.abs(closest.x - this.pos.x), 0, p.width / 2, p.height, 0);
-                var alpha_1 = p.map(h, 0, p.height, 0, 255);
-                p.fill(255, alpha_1);
-                p.noStroke();
+                var sceneW = p.width / 2;
+                p.push();
+                p.translate(sceneW, 0);
+                var sq_1 = dist * dist;
+                var wSq = sceneW * sceneW;
+                var alpha_1 = ray.angle - _this.angle;
+                var offset = p.map(ray.angle, _this.angle - _this.fov / 2, _this.angle + _this.fov / 2, 0, sceneW);
+                var w = sceneW / _this.rays.length;
+                var cameraDist = dist * p.cos(alpha_1);
+                var h = 50 / cameraDist * p.height;
+                var clr = collided.segment.c;
+                p.fill(p.red(clr), p.green(clr), p.blue(clr), p.map(sq_1, 0, wSq, 255, 0));
                 p.rectMode(p.CENTER);
-                p.rect(offset + w / 2, p.height / 2, w, h);
+                p.noStroke();
+                p.rect(offset + w, p.height / 2, w + 1, h);
+                p.pop();
             }
-        }
+        });
     };
     Actor.prototype.show = function () {
         p.stroke(255, 255);
@@ -71,6 +85,7 @@ var Ray = (function () {
     });
     Ray.prototype.cast = function (shape) {
         var closest;
+        var target;
         var dist = Infinity;
         for (var _i = 0, _a = shape.getSegments(); _i < _a.length; _i++) {
             var segment = _a[_i];
@@ -80,10 +95,13 @@ var Ray = (function () {
                 if (d < dist) {
                     dist = d;
                     closest = pt;
+                    target = segment;
                 }
             }
         }
-        return closest;
+        if (closest) {
+            return { point: closest, segment: target };
+        }
     };
     Ray.prototype.castSegment = function (wall) {
         var x1 = wall.a.x;
@@ -123,15 +141,22 @@ var __extends = (this && this.__extends) || (function () {
     };
 })();
 var Segment = (function () {
-    function Segment(x1, y1, x2, y2) {
+    function Segment(x1, y1, x2, y2, clr) {
+        if (clr === void 0) { clr = null; }
         this.a = p.createVector(x1, y1);
         this.b = p.createVector(x2, y2);
+        if (clr) {
+            this.c = clr;
+        }
+        else {
+            this.c = p.color(p.random(255), p.random(255), p.random(255));
+        }
     }
     Segment.prototype.getSegments = function () {
         return [this];
     };
     Segment.prototype.show = function () {
-        p.stroke(255, 255);
+        p.stroke(this.c);
         p.line(this.a.x, this.a.y, this.b.x, this.b.y);
     };
     return Segment;
@@ -141,11 +166,12 @@ var Rectangle = (function () {
         this.position = p.createVector(x, y);
         this.width = w;
         this.height = h;
+        var clr = p.color(p.random(255), p.random(255), p.random(255));
         this.segments = new Array(4);
-        this.segments[0] = new Segment(this.position.x, this.position.y, this.position.x + this.width, this.position.y);
-        this.segments[1] = new Segment(this.position.x, this.position.y, this.position.x, this.position.y + this.height);
-        this.segments[2] = new Segment(this.position.x + this.width, this.position.y, this.position.x + this.width, this.position.y + this.height);
-        this.segments[3] = new Segment(this.position.x, this.position.y + this.height, this.position.x + this.width, this.position.y + this.height);
+        this.segments[0] = new Segment(this.position.x, this.position.y, this.position.x + this.width, this.position.y, clr);
+        this.segments[1] = new Segment(this.position.x, this.position.y, this.position.x, this.position.y + this.height, clr);
+        this.segments[2] = new Segment(this.position.x + this.width, this.position.y, this.position.x + this.width, this.position.y + this.height, clr);
+        this.segments[3] = new Segment(this.position.x, this.position.y + this.height, this.position.x + this.width, this.position.y + this.height, clr);
     }
     Rectangle.fromCoordinates = function (x1, y1, x2, y2) {
         return new Rectangle(x1, y1, x2 - x1, y2 - y1);
@@ -173,14 +199,15 @@ var sketch = function (context) {
     p = context;
     var player;
     var shapes;
+    var isUp, isDown, isLeft, isRight, isShift;
     p.setup = function () {
         p.createCanvas(p.windowWidth, p.windowHeight);
-        player = new Actor(p.width / 2, p.height / 2);
+        player = new Actor(p.width / 4, p.height / 2);
         shapes = [];
-        for (var i = 0; i < 3; i++) {
-            shapes.push(new Segment(p.random(0, p.width / 2), p.random(0, p.height), p.random(0, p.width / 2), p.random(0, p.height)));
-            shapes.push(new Square(p.random(0, p.width / 2 - 300), p.random(0, p.height - 300), p.random(50, 300)));
+        for (var i = 0; i < 40; i++) {
+            shapes.push(new Square(p.random(0, p.width / 2 - 30), p.random(0, p.height - 30), p.random(10, 30)));
         }
+        shapes.push(new Rectangle(0, 0, p.width / 2, p.height));
     };
     p.draw = function () {
         p.background(0);
@@ -189,9 +216,45 @@ var sketch = function (context) {
             shape.show();
         }
         player.update();
-        if (p.mouseX < p.width / 2) {
-            player.raycast(shapes);
-            player.show();
+        player.raycast(shapes);
+        player.show();
+        var dx = isShift ? 3 : 1;
+        if (isUp) {
+            player.move(dx, 0);
+        }
+        if (isDown) {
+            player.move(-dx, 0);
+        }
+        if (isLeft) {
+            player.move(0, -dx);
+        }
+        if (isRight) {
+            player.move(0, dx);
+        }
+    };
+    p.mouseMoved = function () {
+        player.angle = p.map(p.mouseX, 0, p.width, 0, p.PI * 2) + p.PI / 2;
+    };
+    p.keyPressed = function () {
+        setMove(p.keyCode, true);
+    };
+    p.keyReleased = function () {
+        setMove(p.keyCode, false);
+    };
+    var setMove = function (c, b) {
+        switch (c) {
+            case 87:
+                return isUp = b;
+            case 83:
+                return isDown = b;
+            case 65:
+                return isLeft = b;
+            case 68:
+                return isRight = b;
+            case 16:
+                return isShift = b;
+            default:
+                return b;
         }
     };
 };
