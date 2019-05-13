@@ -4,34 +4,35 @@ var sketch = (context: p5) => {
     p = context;
 
     var player: Actor;
-    var shapes: Shape[];
+    var shapes: IShape[];
 
     p.setup = () => {
-        // -1 to see the border
-        p.createCanvas(p.windowWidth - 1, p.windowHeight - 1);
+        p.createCanvas(p.windowWidth, p.windowHeight);
 
         player = new Actor(p.width / 2, p.height / 2);
-        shapes = [];
 
-        for (let i = 0; i < 5; i++) {
-            shapes.push(new Segment(p.random(0, p.width), p.random(0, p.height), p.random(0, p.width), p.random(0, p.height)));
-            shapes.push(new Square(p.random(0, p.width), p.random(0, p.height), p.random(50, 300)));
+        shapes = [];
+        for (let i = 0; i < 3; i++) {
+            shapes.push(new Segment(p.random(0, p.width / 2), p.random(0, p.height), p.random(0, p.width / 2), p.random(0, p.height)));
+            shapes.push(new Square(p.random(0, p.width / 2 - 300), p.random(0, p.height - 300), p.random(50, 300)));
         }
-        
+
         // border around the scene
-        shapes.push(Rectangle.fromCoordinates(0, 0, p.width, p.height));
+        //shapes.push(Rectangle.fromCoordinates(0, 0, p.width / 2, p.height));
     }
 
     p.draw = () => {
         p.background(0);
-        
-        for(let shape of shapes){
+
+        for (let shape of shapes) {
             shape.show();
         }
-        
+
         player.update();
-        player.show();
-        player.raycast(shapes);
+        if (p.mouseX < p.width / 2) {
+            player.raycast(shapes);
+            player.show();
+        }
     }
 }
 

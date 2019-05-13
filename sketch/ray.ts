@@ -1,19 +1,23 @@
 class Ray {
-    pos: p5.Vector;
-    dir: p5.Vector;
+    public pos: p5.Vector;
+    private dir: p5.Vector;
+    private _angle: number;
 
-    constructor(x: number, y: number, angle: number) {
+    constructor(x: number, y: number, a: number) {
         this.pos = p.createVector(x, y);
-        this.dir = p5.Vector.fromAngle(angle);
+        this.angle = a;
     }
 
-    lookAt(x: number, y: number) {
-        this.dir.x = x - this.pos.x;
-        this.dir.y = y - this.pos.y;
-        this.dir.normalize();
+    set angle(a: number) {
+        this._angle = a;
+        this.dir = p5.Vector.fromAngle(a);
     }
 
-    cast(shape: Shape): p5.Vector {
+    get angle() {
+        return this._angle;
+    }
+
+    cast(shape: IShape): p5.Vector {
         var closest: p5.Vector;
         var dist = Infinity;
 

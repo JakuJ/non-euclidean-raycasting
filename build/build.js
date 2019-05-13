@@ -1,26 +1,26 @@
 var Actor = (function () {
     function Actor(x, y, nRays) {
-        if (nRays === void 0) { nRays = 200; }
+        if (nRays === void 0) { nRays = 150; }
         this.pos = p.createVector(x, y);
-        this.angle = 0;
-        this.fov = p.PI * 2;
-        this.rays = Array(nRays);
-        for (var i = 0, a = this.angle - this.fov / 2; i < nRays; i++, a += this.fov / nRays) {
+        this.angle = p.PI;
+        this.fov = p.radians(45);
+        this.rays = new Array(nRays);
+        for (var i = 0, a = this.angle + this.fov / 2; i < nRays; i++, a -= this.fov / nRays) {
             this.rays[i] = new Ray(this.pos.x, this.pos.y, a);
         }
     }
     Actor.prototype.update = function () {
         this.pos.x = p.mouseX;
         this.pos.y = p.mouseY;
-        for (var _i = 0, _a = this.rays; _i < _a.length; _i++) {
-            var ray = _a[_i];
-            ray.pos = this.pos;
+        for (var i = 0, a = this.angle - this.fov / 2; i < this.rays.length; i++, a += this.fov / this.rays.length) {
+            this.rays[i].pos = this.pos;
+            this.rays[i].angle = a;
         }
     };
     Actor.prototype.raycast = function (shapes) {
         for (var _i = 0, _a = this.rays; _i < _a.length; _i++) {
             var ray = _a[_i];
-            var closest;
+            var closest = null;
             var dist = Infinity;
             for (var _b = 0, shapes_1 = shapes; _b < shapes_1.length; _b++) {
                 var shape = shapes_1[_b];
@@ -34,8 +34,16 @@ var Actor = (function () {
                 }
             }
             if (closest) {
-                p.stroke(255, 150);
+                p.stroke(255, 0, 0);
                 p.line(ray.pos.x, ray.pos.y, closest.x, closest.y);
+                var offset = p.map(ray.angle, this.angle - this.fov / 2, this.angle + this.fov / 2, p.width / 2, p.width);
+                var w = p.width / 2 / this.rays.length;
+                var h = p.map(p.abs(closest.x - this.pos.x), 0, p.width / 2, p.height, 0);
+                var alpha_1 = p.map(h, 0, p.height, 0, 255);
+                p.fill(255, alpha_1);
+                p.noStroke();
+                p.rectMode(p.CENTER);
+                p.rect(offset + w / 2, p.height / 2, w, h);
             }
         }
     };
@@ -46,15 +54,21 @@ var Actor = (function () {
     return Actor;
 }());
 var Ray = (function () {
-    function Ray(x, y, angle) {
+    function Ray(x, y, a) {
         this.pos = p.createVector(x, y);
-        this.dir = p5.Vector.fromAngle(angle);
+        this.angle = a;
     }
-    Ray.prototype.lookAt = function (x, y) {
-        this.dir.x = x - this.pos.x;
-        this.dir.y = y - this.pos.y;
-        this.dir.normalize();
-    };
+    Object.defineProperty(Ray.prototype, "angle", {
+        get: function () {
+            return this._angle;
+        },
+        set: function (a) {
+            this._angle = a;
+            this.dir = p5.Vector.fromAngle(a);
+        },
+        enumerable: true,
+        configurable: true
+    });
     Ray.prototype.cast = function (shape) {
         var closest;
         var dist = Infinity;
@@ -160,14 +174,13 @@ var sketch = function (context) {
     var player;
     var shapes;
     p.setup = function () {
-        p.createCanvas(p.windowWidth - 1, p.windowHeight - 1);
+        p.createCanvas(p.windowWidth, p.windowHeight);
         player = new Actor(p.width / 2, p.height / 2);
         shapes = [];
-        for (var i = 0; i < 5; i++) {
-            shapes.push(new Segment(p.random(0, p.width), p.random(0, p.height), p.random(0, p.width), p.random(0, p.height)));
-            shapes.push(new Square(p.random(0, p.width), p.random(0, p.height), p.random(50, 300)));
+        for (var i = 0; i < 3; i++) {
+            shapes.push(new Segment(p.random(0, p.width / 2), p.random(0, p.height), p.random(0, p.width / 2), p.random(0, p.height)));
+            shapes.push(new Square(p.random(0, p.width / 2 - 300), p.random(0, p.height - 300), p.random(50, 300)));
         }
-        shapes.push(Rectangle.fromCoordinates(0, 0, p.width, p.height));
     };
     p.draw = function () {
         p.background(0);
@@ -176,8 +189,10 @@ var sketch = function (context) {
             shape.show();
         }
         player.update();
-        player.show();
-        player.raycast(shapes);
+        if (p.mouseX < p.width / 2) {
+            player.raycast(shapes);
+            player.show();
+        }
     };
 };
 var sketchP5 = new p5(sketch);
