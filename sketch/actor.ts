@@ -4,7 +4,7 @@ class Actor {
     fov: number;
     rays: Ray[];
 
-    constructor(x: number, y: number, nRays: number = 200) {
+    constructor(x: number, y: number, nRays: number = 160) {
         this.pos = p.createVector(x, y);
         this.angle = 0;
         this.fov = p.radians(60);
@@ -32,11 +32,24 @@ class Actor {
     }
 
     raycast(shapes: IShape[]) {
+        const sceneW = p.width / 2;
+        const wSq = sceneW * sceneW;
+        const w = sceneW / this.rays.length;
+
+        p.noStroke();
+        p.fill('#87CEEB');
+        p.rect(sceneW, 0, sceneW, p.height / 2);
+        p.fill('#694629');
+        p.rect(sceneW, p.height / 2, sceneW, p.height / 2);
+
         this.rays.forEach((ray, i) => {
             var collided: { point: p5.Vector, segment: Segment } = null;
             var dist = Infinity;
 
             for (let shape of shapes) {
+                if (!shape) {
+                    continue;
+                }
                 const t = ray.cast(shape);
                 if (t) {
                     const d = p.dist(this.pos.x, this.pos.y, t.point.x, t.point.y);
@@ -46,33 +59,27 @@ class Actor {
                     }
                 }
             }
+
+            const offset = p.map(ray.angle, this.angle - this.fov / 2, this.angle + this.fov / 2, 0, sceneW);
+
             if (collided) {
                 const closest = collided.point;
                 p.stroke(255, 150);
                 p.line(ray.pos.x, ray.pos.y, closest.x, closest.y);
 
                 // render 3D view on the right hand side
-                const sceneW = p.width / 2;
-
-                p.push();
-                p.translate(sceneW, 0);
-
                 const sq = dist * dist;
-                const wSq = sceneW * sceneW;
-
                 const alpha = ray.angle - this.angle;
-                const offset = p.map(ray.angle, this.angle - this.fov / 2, this.angle + this.fov / 2, 0, sceneW);
-                const w = sceneW / this.rays.length;
-
                 const cameraDist = dist * p.cos(alpha);
                 const h = 50 / cameraDist * p.height;
-
                 const clr = collided.segment.c;
-
-                p.fill(p.red(clr), p.green(clr), p.blue(clr), p.map(sq, 0, wSq, 255, 0));
-                p.rectMode(p.CENTER);
+                const gray = p.map(sq, 0, wSq * p.sqrt(2), 1, 0);
+                p.push();
+                p.translate(sceneW, 0);
                 p.noStroke();
-                p.rect(offset + w, p.height / 2, w + 1, h);
+                p.fill(p.red(clr) * gray, p.green(clr) * gray, p.blue(clr) * gray);
+                p.rectMode(p.CENTER);
+                p.rect(offset + w, p.height / 2, w, h);
                 p.pop();
             }
         });
@@ -80,6 +87,7 @@ class Actor {
 
     show() {
         p.stroke(255, 255);
+        p.fill(255);
         p.ellipse(this.pos.x, this.pos.y, 20, 20);
     }
 }

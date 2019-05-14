@@ -1,6 +1,6 @@
 var Actor = (function () {
     function Actor(x, y, nRays) {
-        if (nRays === void 0) { nRays = 200; }
+        if (nRays === void 0) { nRays = 160; }
         this.pos = p.createVector(x, y);
         this.angle = 0;
         this.fov = p.radians(60);
@@ -24,11 +24,22 @@ var Actor = (function () {
     };
     Actor.prototype.raycast = function (shapes) {
         var _this = this;
+        var sceneW = p.width / 2;
+        var wSq = sceneW * sceneW;
+        var w = sceneW / this.rays.length;
+        p.noStroke();
+        p.fill('#87CEEB');
+        p.rect(sceneW, 0, sceneW, p.height / 2);
+        p.fill('#694629');
+        p.rect(sceneW, p.height / 2, sceneW, p.height / 2);
         this.rays.forEach(function (ray, i) {
             var collided = null;
             var dist = Infinity;
             for (var _i = 0, shapes_1 = shapes; _i < shapes_1.length; _i++) {
                 var shape = shapes_1[_i];
+                if (!shape) {
+                    continue;
+                }
                 var t = ray.cast(shape);
                 if (t) {
                     var d = p.dist(_this.pos.x, _this.pos.y, t.point.x, t.point.y);
@@ -38,34 +49,53 @@ var Actor = (function () {
                     }
                 }
             }
+            var offset = p.map(ray.angle, _this.angle - _this.fov / 2, _this.angle + _this.fov / 2, 0, sceneW);
             if (collided) {
                 var closest = collided.point;
                 p.stroke(255, 150);
                 p.line(ray.pos.x, ray.pos.y, closest.x, closest.y);
-                var sceneW = p.width / 2;
-                p.push();
-                p.translate(sceneW, 0);
                 var sq_1 = dist * dist;
-                var wSq = sceneW * sceneW;
                 var alpha_1 = ray.angle - _this.angle;
-                var offset = p.map(ray.angle, _this.angle - _this.fov / 2, _this.angle + _this.fov / 2, 0, sceneW);
-                var w = sceneW / _this.rays.length;
                 var cameraDist = dist * p.cos(alpha_1);
                 var h = 50 / cameraDist * p.height;
                 var clr = collided.segment.c;
-                p.fill(p.red(clr), p.green(clr), p.blue(clr), p.map(sq_1, 0, wSq, 255, 0));
-                p.rectMode(p.CENTER);
+                var gray = p.map(sq_1, 0, wSq * p.sqrt(2), 1, 0);
+                p.push();
+                p.translate(sceneW, 0);
                 p.noStroke();
-                p.rect(offset + w, p.height / 2, w + 1, h);
+                p.fill(p.red(clr) * gray, p.green(clr) * gray, p.blue(clr) * gray);
+                p.rectMode(p.CENTER);
+                p.rect(offset + w, p.height / 2, w, h);
                 p.pop();
             }
         });
     };
     Actor.prototype.show = function () {
         p.stroke(255, 255);
+        p.fill(255);
         p.ellipse(this.pos.x, this.pos.y, 20, 20);
     };
     return Actor;
+}());
+var Level = (function () {
+    function Level(w, h) {
+        this.width = w;
+        this.height = h;
+        this.cellSize = p.width / this.width / 2;
+        this.cells = [];
+    }
+    Level.prototype.addSquare = function (x, y) {
+        this.cells.push(new Square(x * this.cellSize, y * this.cellSize, this.cellSize));
+    };
+    Level.prototype.show = function () {
+        for (var _i = 0, _a = this.cells; _i < _a.length; _i++) {
+            var x = _a[_i];
+            if (x) {
+                x.show();
+            }
+        }
+    };
+    return Level;
 }());
 var Ray = (function () {
     function Ray(x, y, a) {
@@ -198,27 +228,34 @@ var p;
 var sketch = function (context) {
     p = context;
     var player;
-    var shapes;
+    var level;
     var isUp, isDown, isLeft, isRight, isShift;
     p.setup = function () {
         p.createCanvas(p.windowWidth, p.windowHeight);
+        p.frameRate(60);
+        p.textSize(30);
         player = new Actor(p.width / 4, p.height / 2);
-        shapes = [];
-        for (var i = 0; i < 40; i++) {
-            shapes.push(new Square(p.random(0, p.width / 2 - 30), p.random(0, p.height - 30), p.random(10, 30)));
+        var lw = 40;
+        var lh = 50;
+        level = new Level(lw, lh);
+        for (var x = 0; x < lw; x++) {
+            for (var y = 0; y < lh; y++) {
+                if (p.abs(x - lw / 2) > 5 && p.random() < 0.1) {
+                    level.addSquare(x, y);
+                }
+            }
         }
-        shapes.push(new Rectangle(0, 0, p.width / 2, p.height));
     };
     p.draw = function () {
         p.background(0);
-        for (var _i = 0, shapes_2 = shapes; _i < shapes_2.length; _i++) {
-            var shape = shapes_2[_i];
-            shape.show();
-        }
+        level.show();
         player.update();
-        player.raycast(shapes);
+        player.raycast(level.cells);
         player.show();
-        var dx = isShift ? 3 : 1;
+        p.stroke(255);
+        p.fill(255);
+        p.text(p.round(p.frameRate()), p.width / 2, p.textSize());
+        var dx = isShift ? 5 : 3;
         if (isUp) {
             player.move(dx, 0);
         }

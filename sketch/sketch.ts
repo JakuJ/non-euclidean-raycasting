@@ -4,33 +4,43 @@ var sketch = (context: p5) => {
     p = context;
 
     var player: Actor;
-    var shapes: IShape[];
+    var level: Level;
     var isUp: boolean, isDown: boolean, isLeft: boolean, isRight: boolean, isShift: boolean;
 
     p.setup = () => {
         p.createCanvas(p.windowWidth, p.windowHeight);
+        p.frameRate(60);
+        p.textSize(30);
 
         player = new Actor(p.width / 4, p.height / 2);
 
-        shapes = [];
-        for (let i = 0; i < 40; i++) {
-            shapes.push(new Square(p.random(0, p.width / 2 - 30), p.random(0, p.height - 30), p.random(10, 30)));
+        const lw = 40;
+        const lh = 50;
+        level = new Level(lw, lh);
+
+        for (let x = 0; x < lw; x++) {
+            for (let y = 0; y < lh; y++) {
+                if (p.abs(x - lw / 2) > 5 && p.random() < 0.1) {
+                    level.addSquare(x, y);
+                }
+            }
         }
-        shapes.push(new Rectangle(0, 0, p.width / 2, p.height));
     }
 
     p.draw = () => {
         p.background(0);
 
-        for (let shape of shapes) {
-            shape.show();
-        }
+        level.show();
 
         player.update();
-        player.raycast(shapes);
+        player.raycast(level.cells);
         player.show();
 
-        const dx = isShift ? 3 : 1;
+        p.stroke(255);
+        p.fill(255);
+        p.text(p.round(p.frameRate()), p.width / 2, p.textSize());
+
+        const dx = isShift ? 5 : 3;
 
         if (isUp) {
             player.move(dx, 0);
