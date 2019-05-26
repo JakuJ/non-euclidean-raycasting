@@ -1,26 +1,20 @@
 class Level {
-    cells: Square[];
     width: number;
     height: number;
     cellSize: number;
+    cells: Square[];
 
     constructor(w: number, h: number) {
         this.width = w;
         this.height = h;
-        this.cellSize = p.width / this.width / 2;
-
-        this.cells = []
+        this.cellSize = 10;
+        this.cells = [];
     }
 
     addSquare(x: number, y: number) {
-        this.cells.push(new Square(x * this.cellSize, y * this.cellSize, this.cellSize));
-    }
-
-    show() {
-        for (let x of this.cells) {
-            if (x) {
-                x.show();
-            }
+        if (x < 0 || x > this.width || y < 0 || y > this.height) {
+            throw new Error("Cell out of bounds");
         }
+        this.cells.push(new Square(x * this.cellSize, y * this.cellSize, this.cellSize));
     }
 }
