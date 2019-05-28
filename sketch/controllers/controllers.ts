@@ -21,7 +21,7 @@ class GameController {
     }
 
     update() {
-        const step = this.isShift ? 5 : 3;
+        const step = this.isShift ? 2 : 1;
         
         if (this.isUp) {
             this.state.actor.move(step, 0);

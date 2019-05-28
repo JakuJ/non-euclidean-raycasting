@@ -3,7 +3,11 @@ var p: p5;
 var sketch = (context: p5) => {
     p = context;
     var game: GameController;
-    var frames: number;
+    //var texture: p5.Image;
+
+    p.preload = () => {
+        //texture = p.loadImage("../assets/textures/archs.bmp");
+    }
 
     p.setup = () => {
         p.createCanvas(p.windowWidth, p.windowHeight, p.P2D);
@@ -12,26 +16,33 @@ var sketch = (context: p5) => {
 
         const state = new GameState(24, 24);
         const view = new CompositeView([
-            new RaycastView(0, 0, p.width / 2, p.height, state),
-            new FirstPersonView(p.width / 2, 0, p.width / 2, p.height, state)
+            new FirstPersonView(0, 0, p.width, p.height, state),
+            new RaycastView(0, 0, 200, 200, state),
+            new FPSView(p.width - 100, 30)
         ]);
 
         game = new GameController(state, view);
-        frames = p.round(p.frameRate());
     }
 
     p.draw = () => {
         p.background(0);
         game.update();
 
-        // fixed framerate counter
-        if (p.frameCount % 20 == 0) {
-            frames = p.round(p.frameRate());
-        }
-        
-        p.fill(255, 255, 0);
-        p.textSize(24);
-        p.text(frames + ' FPS', 10, 30);
+        // TODO: Texturing
+        //skewImage(texture, p.width / 2, 200, 4, 100, 200);
+    }
+}
+
+var skewImage = (image: p5.Image, x: number, y: number, sliceWidth: number, left: number, right: number) => {
+    const slices = p.floor(image.width / sliceWidth);
+    const sw = p.floor(image.width / slices);
+    const step = (right - left) / slices;
+    var h = left;
+
+    p.imageMode(p.CENTER);
+    for (let i = 0; i < slices; i++) {
+        p.image(image, x + (i + 0.5) * sliceWidth, y, sliceWidth, h, i * sw, 0, sw, image.height);
+        h += step;
     }
 }
 

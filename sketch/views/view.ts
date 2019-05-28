@@ -14,6 +14,18 @@ abstract class View {
     abstract render(): void;
 }
 
+class FPSView extends View {
+    constructor(x: number, y: number) {
+        super(x, y, 0, 0);
+    }
+
+    render(): void {
+        p.fill(255, 255, 0);
+        p.textSize(24);
+        p.text(p.round(p.frameRate()) + ' FPS', this.x, this.y);
+    }
+}
+
 class CompositeView extends View {
     views: View[];
 
@@ -60,6 +72,10 @@ class RaycastView extends GameView {
 
         p.push();
         p.translate(this.x, this.y);
+        // background
+        p.fill(0);
+        p.rect(0, 0, this.width, this.height);
+        
         p.scale(scale);
 
         for (let x of this.state.level.cells) {
@@ -68,10 +84,14 @@ class RaycastView extends GameView {
             }
         }
 
+        p.strokeWeight(0.5);
+        p.stroke(255, 150);
+
+        const seen = new Map<Segment, number[]>();
         collisions.forEach((c, i) => {
-            if (c) {
+            if (c && !seen.has(c.segment)) {
+                //seen.set(c.segment, [1]);
                 const closest = c.point;
-                p.stroke(255, 150);
                 p.line(this.state.actor.rays[i].pos.x, this.state.actor.rays[i].pos.y, closest.x, closest.y);
             }
         });
@@ -95,26 +115,20 @@ class FirstPersonView extends GameView {
         p.fill('#694629');
         p.rect(this.x, this.y + this.height / 2, this.width, this.height / 2);
 
-        const wSq = this.width * this.width;
-        const w = this.width / this.state.actor.rays.length
+        const w = this.width / this.state.actor.rays.length;
 
         collisions.forEach((c, i) => {
             if (c) {
                 const offset = p.map(this.state.actor.rays[i].angle, this.state.actor.angle - this.state.actor.fov / 2, this.state.actor.angle + this.state.actor.fov / 2, 0, this.width);
-                const dist = c.distance;
-                const sq = dist * dist;
                 const alpha = this.state.actor.rays[i].angle - this.state.actor.angle;
-                const cameraDist = dist * p.cos(alpha);
-                const h = p.min(this.height, 50 / cameraDist * this.height);
-                const clr = c.segment.c;
-                const gray = p.map(sq, 0, wSq * p.sqrt(2), 1, 0);
+                const cameraDist = c.distance * p.cos(alpha);
+                const h = p.min(this.height, this.height / cameraDist * (this.width / (p.displayHeight / c.segment.h)));
 
                 p.push();
                 p.translate(this.x, this.y);
-                p.noStroke();
-                p.fill(p.red(clr) * gray, p.green(clr) * gray, p.blue(clr) * gray);
+                p.fill(c.segment.c);
                 p.rectMode(p.CENTER);
-                p.rect(offset + w, this.height / 2, w, h);
+                p.rect(offset + 0.5 * w, this.height / 2, w, h);
                 p.pop();
             }
         });

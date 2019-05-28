@@ -18,7 +18,7 @@ class Actor{
     move(dx: number, dy: number) {
         const front = p5.Vector.fromAngle(this.angle);
         front.setMag(dx);
-        const side = p5.Vector.fromAngle(this.angle + p.PI / 2);
+        const side = p5.Vector.fromAngle(this.angle + p.HALF_PI);
         side.setMag(dy);
 
         this.pos.add(front).add(side);

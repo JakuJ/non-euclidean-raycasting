@@ -2,29 +2,35 @@ var p;
 var sketch = function (context) {
     p = context;
     var game;
-    var frames;
+    p.preload = function () {
+    };
     p.setup = function () {
         p.createCanvas(p.windowWidth, p.windowHeight, p.P2D);
         p.frameRate(60);
         p.textSize(30);
         var state = new GameState(24, 24);
         var view = new CompositeView([
-            new RaycastView(0, 0, p.width / 2, p.height, state),
-            new FirstPersonView(p.width / 2, 0, p.width / 2, p.height, state)
+            new FirstPersonView(0, 0, p.width, p.height, state),
+            new RaycastView(0, 0, 200, 200, state),
+            new FPSView(p.width - 100, 30)
         ]);
         game = new GameController(state, view);
-        frames = p.round(p.frameRate());
     };
     p.draw = function () {
         p.background(0);
         game.update();
-        if (p.frameCount % 20 == 0) {
-            frames = p.round(p.frameRate());
-        }
-        p.fill(255, 255, 0);
-        p.textSize(24);
-        p.text(frames + ' FPS', 10, 30);
     };
+};
+var skewImage = function (image, x, y, sliceWidth, left, right) {
+    var slices = p.floor(image.width / sliceWidth);
+    var sw = p.floor(image.width / slices);
+    var step = (right - left) / slices;
+    var h = left;
+    p.imageMode(p.CENTER);
+    for (var i = 0; i < slices; i++) {
+        p.image(image, x + (i + 0.5) * sliceWidth, y, sliceWidth, h, i * sw, 0, sw, image.height);
+        h += step;
+    }
 };
 var sketchP5 = new p5(sketch);
 var GameController = (function () {
@@ -43,7 +49,7 @@ var GameController = (function () {
         };
     }
     GameController.prototype.update = function () {
-        var step = this.isShift ? 5 : 3;
+        var step = this.isShift ? 2 : 1;
         if (this.isUp) {
             this.state.actor.move(step, 0);
         }
@@ -91,7 +97,7 @@ var Actor = (function () {
     Actor.prototype.move = function (dx, dy) {
         var front = p5.Vector.fromAngle(this.angle);
         front.setMag(dx);
-        var side = p5.Vector.fromAngle(this.angle + p.PI / 2);
+        var side = p5.Vector.fromAngle(this.angle + p.HALF_PI);
         side.setMag(dy);
         this.pos.add(front).add(side);
     };
@@ -129,14 +135,17 @@ var Level = (function () {
     function Level(width, height) {
         this.width = width;
         this.height = height;
-        this.cellSize = 10;
+        this.cellSize = 20;
         this.cells = [];
     }
+    Level.prototype.add = function (shape) {
+        this.cells.push(shape);
+    };
     Level.prototype.addSquare = function (x, y) {
         if (x < 0 || x > this.width || y < 0 || y > this.height) {
             throw new Error("Cell out of bounds");
         }
-        this.cells.push(new Square(x * this.cellSize, y * this.cellSize, this.cellSize));
+        this.add(new Square(x * this.cellSize, y * this.cellSize, this.cellSize));
     };
     return Level;
 }());
@@ -233,10 +242,11 @@ var __extends = (this && this.__extends) || (function () {
     };
 })();
 var Segment = (function () {
-    function Segment(x1, y1, x2, y2, clr) {
+    function Segment(x1, y1, x2, y2, h, clr) {
         if (clr === void 0) { clr = null; }
         this.a = p.createVector(x1, y1);
         this.b = p.createVector(x2, y2);
+        this.h = h;
         if (clr) {
             this.c = clr;
         }
@@ -247,6 +257,13 @@ var Segment = (function () {
     Segment.prototype.getSegments = function () {
         return [this];
     };
+    Object.defineProperty(Segment.prototype, "length", {
+        get: function () {
+            return p5.Vector.sub(this.b, this.a).mag();
+        },
+        enumerable: true,
+        configurable: true
+    });
     Segment.prototype.show = function () {
         p.stroke(this.c);
         p.line(this.a.x, this.a.y, this.b.x, this.b.y);
@@ -254,20 +271,18 @@ var Segment = (function () {
     return Segment;
 }());
 var Rectangle = (function () {
-    function Rectangle(x, y, w, h) {
+    function Rectangle(x, y, a, b, h) {
         this.position = p.createVector(x, y);
-        this.width = w;
-        this.height = h;
+        this.a = a;
+        this.b = b;
+        this.h = h;
         var clr = p.color(p.random(255), p.random(255), p.random(255));
         this.segments = new Array(4);
-        this.segments[0] = new Segment(this.position.x, this.position.y, this.position.x + this.width, this.position.y, clr);
-        this.segments[1] = new Segment(this.position.x, this.position.y, this.position.x, this.position.y + this.height, clr);
-        this.segments[2] = new Segment(this.position.x + this.width, this.position.y, this.position.x + this.width, this.position.y + this.height, clr);
-        this.segments[3] = new Segment(this.position.x, this.position.y + this.height, this.position.x + this.width, this.position.y + this.height, clr);
+        this.segments[0] = new Segment(this.position.x, this.position.y, this.position.x + this.a, this.position.y, this.h, clr);
+        this.segments[1] = new Segment(this.position.x, this.position.y, this.position.x, this.position.y + this.b, this.h, clr);
+        this.segments[2] = new Segment(this.position.x + this.a, this.position.y, this.position.x + this.a, this.position.y + this.b, this.h, clr);
+        this.segments[3] = new Segment(this.position.x, this.position.y + this.b, this.position.x + this.a, this.position.y + this.b, this.h, clr);
     }
-    Rectangle.fromCoordinates = function (x1, y1, x2, y2) {
-        return new Rectangle(x1, y1, x2 - x1, y2 - y1);
-    };
     Rectangle.prototype.getSegments = function () {
         return this.segments;
     };
@@ -282,7 +297,7 @@ var Rectangle = (function () {
 var Square = (function (_super) {
     __extends(Square, _super);
     function Square(x, y, a) {
-        return _super.call(this, x, y, a, a) || this;
+        return _super.call(this, x, y, a, a, a) || this;
     }
     return Square;
 }(Rectangle));
@@ -295,6 +310,18 @@ var View = (function () {
     }
     return View;
 }());
+var FPSView = (function (_super) {
+    __extends(FPSView, _super);
+    function FPSView(x, y) {
+        return _super.call(this, x, y, 0, 0) || this;
+    }
+    FPSView.prototype.render = function () {
+        p.fill(255, 255, 0);
+        p.textSize(24);
+        p.text(p.round(p.frameRate()) + ' FPS', this.x, this.y);
+    };
+    return FPSView;
+}(View));
 var CompositeView = (function (_super) {
     __extends(CompositeView, _super);
     function CompositeView(views) {
@@ -336,6 +363,8 @@ var RaycastView = (function (_super) {
         var scale = p.min(scaleX, scaleY);
         p.push();
         p.translate(this.x, this.y);
+        p.fill(0);
+        p.rect(0, 0, this.width, this.height);
         p.scale(scale);
         for (var _i = 0, _a = this.state.level.cells; _i < _a.length; _i++) {
             var x = _a[_i];
@@ -343,10 +372,12 @@ var RaycastView = (function (_super) {
                 x.show();
             }
         }
+        p.strokeWeight(0.5);
+        p.stroke(255, 150);
+        var seen = new Map();
         collisions.forEach(function (c, i) {
-            if (c) {
+            if (c && !seen.has(c.segment)) {
                 var closest = c.point;
-                p.stroke(255, 150);
                 p.line(_this.state.actor.rays[i].pos.x, _this.state.actor.rays[i].pos.y, closest.x, closest.y);
             }
         });
@@ -369,24 +400,18 @@ var FirstPersonView = (function (_super) {
         p.rect(this.x, this.y, this.width, this.height / 2);
         p.fill('#694629');
         p.rect(this.x, this.y + this.height / 2, this.width, this.height / 2);
-        var wSq = this.width * this.width;
         var w = this.width / this.state.actor.rays.length;
         collisions.forEach(function (c, i) {
             if (c) {
                 var offset = p.map(_this.state.actor.rays[i].angle, _this.state.actor.angle - _this.state.actor.fov / 2, _this.state.actor.angle + _this.state.actor.fov / 2, 0, _this.width);
-                var dist_1 = c.distance;
-                var sq_1 = dist_1 * dist_1;
                 var alpha_1 = _this.state.actor.rays[i].angle - _this.state.actor.angle;
-                var cameraDist = dist_1 * p.cos(alpha_1);
-                var h = p.min(_this.height, 50 / cameraDist * _this.height);
-                var clr = c.segment.c;
-                var gray = p.map(sq_1, 0, wSq * p.sqrt(2), 1, 0);
+                var cameraDist = c.distance * p.cos(alpha_1);
+                var h = p.min(_this.height, _this.height / cameraDist * (_this.width / (p.displayHeight / c.segment.h)));
                 p.push();
                 p.translate(_this.x, _this.y);
-                p.noStroke();
-                p.fill(p.red(clr) * gray, p.green(clr) * gray, p.blue(clr) * gray);
+                p.fill(c.segment.c);
                 p.rectMode(p.CENTER);
-                p.rect(offset + w, _this.height / 2, w, h);
+                p.rect(offset + 0.5 * w, _this.height / 2, w, h);
                 p.pop();
             }
         });
