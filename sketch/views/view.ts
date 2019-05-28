@@ -14,6 +14,25 @@ abstract class View {
     abstract render(): void;
 }
 
+class CompositeView extends View {
+    views: View[];
+
+    constructor(views: View[]) {
+        const x = p.min(views.map(t => t.x));
+        const y = p.min(views.map(t => t.y));
+        const width = p.max(views.map(t => t.x)) - x;
+        const height = p.max(views.map(t => t.x)) - y;
+
+        super(x, y, width, height);
+
+        this.views = views;
+    }
+
+    render(): void {
+        this.views.forEach(x => x.render());
+    }
+}
+
 abstract class GameView extends View {
     state: GameState;
 
@@ -25,7 +44,7 @@ abstract class GameView extends View {
     abstract renderCollisions(collisions: { point: p5.Vector, segment: Segment, distance: number }[]): void;
 
     render() {
-        this.renderCollisions(this.state.actor.raycast(this.state.level.cells));
+        this.renderCollisions(this.state.collisions);
     }
 }
 
@@ -35,14 +54,9 @@ class RaycastView extends GameView {
     }
 
     renderCollisions(collisions: { point: p5.Vector, segment: Segment, distance: number }[]): void {
-
-        var scale = 1;
-        if (this.width < this.height) {
-            scale = this.width / (this.state.level.width * this.state.level.cellSize);
-        }
-        else {
-            scale = this.height / (this.state.level.height * this.state.level.cellSize);
-        }
+        const scaleX = this.width / (this.state.level.width * this.state.level.cellSize);
+        const scaleY = this.height / (this.state.level.height * this.state.level.cellSize);
+        const scale = p.min(scaleX, scaleY);
 
         p.push();
         p.translate(this.x, this.y);
@@ -104,24 +118,5 @@ class FirstPersonView extends GameView {
                 p.pop();
             }
         });
-    }
-}
-
-class CompositeView extends View {
-    views: View[];
-
-    constructor(views: View[]) {
-        const x = p.min(views.map(t => t.x));
-        const y = p.min(views.map(t => t.y));
-        const width = p.max(views.map(t => t.x)) - x;
-        const height = p.max(views.map(t => t.x)) - y;
-
-        super(x, y, width, height);
-
-        this.views = views;
-    }
-
-    render(): void {
-        this.views.forEach(x => x.render());
     }
 }

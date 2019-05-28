@@ -4,9 +4,11 @@ class Level {
     cellSize: number;
     cells: Square[];
 
-    constructor(w: number, h: number) {
-        this.width = w;
-        this.height = h;
+    level: number[][];
+
+    constructor(width: number, height: number) {
+        this.width = width;
+        this.height = height;
         this.cellSize = 10;
         this.cells = [];
     }

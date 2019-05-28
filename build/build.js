@@ -1,51 +1,32 @@
-var Actor = (function () {
-    function Actor(x, y, nRays) {
-        if (nRays === void 0) { nRays = 160; }
-        this.pos = p.createVector(x, y);
-        this.angle = 0;
-        this.fov = p.radians(60);
-        this.rays = new Array(nRays);
-        for (var i = 0, a = this.angle + this.fov / 2; i < nRays; i++, a -= this.fov / nRays) {
-            this.rays[i] = new Ray(this.pos.x, this.pos.y, a);
+var p;
+var sketch = function (context) {
+    p = context;
+    var game;
+    var frames;
+    p.setup = function () {
+        p.createCanvas(p.windowWidth, p.windowHeight, p.P2D);
+        p.frameRate(60);
+        p.textSize(30);
+        var state = new GameState(24, 24);
+        var view = new CompositeView([
+            new RaycastView(0, 0, p.width / 2, p.height, state),
+            new FirstPersonView(p.width / 2, 0, p.width / 2, p.height, state)
+        ]);
+        game = new GameController(state, view);
+        frames = p.round(p.frameRate());
+    };
+    p.draw = function () {
+        p.background(0);
+        game.update();
+        if (p.frameCount % 20 == 0) {
+            frames = p.round(p.frameRate());
         }
-    }
-    Actor.prototype.move = function (dx, dy) {
-        var front = p5.Vector.fromAngle(this.angle);
-        front.setMag(dx);
-        var side = p5.Vector.fromAngle(this.angle + p.PI / 2);
-        side.setMag(dy);
-        this.pos.add(front).add(side);
+        p.fill(255, 255, 0);
+        p.textSize(24);
+        p.text(frames + ' FPS', 10, 30);
     };
-    Actor.prototype.update = function () {
-        for (var i = 0, a = this.angle - this.fov / 2; i < this.rays.length; i++, a += this.fov / this.rays.length) {
-            this.rays[i].pos = this.pos;
-            this.rays[i].angle = a;
-        }
-    };
-    Actor.prototype.raycast = function (shapes) {
-        var _this = this;
-        return this.rays.map(function (ray, i) {
-            var collided = null;
-            var dist = Infinity;
-            for (var _i = 0, shapes_1 = shapes; _i < shapes_1.length; _i++) {
-                var shape = shapes_1[_i];
-                if (!shape) {
-                    continue;
-                }
-                var t = ray.cast(shape);
-                if (t) {
-                    var d = p.dist(_this.pos.x, _this.pos.y, t.point.x, t.point.y);
-                    if (d < dist) {
-                        dist = d;
-                        collided = t;
-                    }
-                }
-            }
-            return collided ? { point: collided.point, segment: collided.segment, distance: dist } : null;
-        });
-    };
-    return Actor;
-}());
+};
+var sketchP5 = new p5(sketch);
 var GameController = (function () {
     function GameController(state, view) {
         var _this = this;
@@ -96,10 +77,58 @@ var GameController = (function () {
     };
     return GameController;
 }());
+var Actor = (function () {
+    function Actor(x, y, nRays) {
+        if (nRays === void 0) { nRays = 160; }
+        this.pos = p.createVector(x, y);
+        this.angle = 0;
+        this.fov = p.radians(60);
+        this.rays = new Array(nRays);
+        for (var i = 0, a = this.angle + this.fov / 2; i < nRays; i++, a -= this.fov / nRays) {
+            this.rays[i] = new Ray(this.pos.x, this.pos.y, a);
+        }
+    }
+    Actor.prototype.move = function (dx, dy) {
+        var front = p5.Vector.fromAngle(this.angle);
+        front.setMag(dx);
+        var side = p5.Vector.fromAngle(this.angle + p.PI / 2);
+        side.setMag(dy);
+        this.pos.add(front).add(side);
+    };
+    Actor.prototype.update = function () {
+        for (var i = 0, a = this.angle - this.fov / 2; i < this.rays.length; i++, a += this.fov / this.rays.length) {
+            this.rays[i].pos = this.pos;
+            this.rays[i].angle = a;
+        }
+    };
+    Actor.prototype.raycast = function (shapes) {
+        var _this = this;
+        return this.rays.map(function (ray, i) {
+            var collided = null;
+            var dist = Infinity;
+            for (var _i = 0, shapes_1 = shapes; _i < shapes_1.length; _i++) {
+                var shape = shapes_1[_i];
+                if (!shape) {
+                    continue;
+                }
+                var t = ray.cast(shape);
+                if (t) {
+                    var d = p.dist(_this.pos.x, _this.pos.y, t.point.x, t.point.y);
+                    if (d < dist) {
+                        dist = d;
+                        collided = t;
+                    }
+                }
+            }
+            return collided ? { point: collided.point, segment: collided.segment, distance: dist } : null;
+        });
+    };
+    return Actor;
+}());
 var Level = (function () {
-    function Level(w, h) {
-        this.width = w;
-        this.height = h;
+    function Level(width, height) {
+        this.width = width;
+        this.height = height;
         this.cellSize = 10;
         this.cells = [];
     }
@@ -113,7 +142,9 @@ var Level = (function () {
 }());
 var GameState = (function () {
     function GameState(width, height) {
+        this.collisions = [];
         this.level = new Level(width, height);
+        this.actor = new Actor(this.level.width * this.level.cellSize / 2, this.level.height * this.level.cellSize / 2);
         for (var x = 0; x < this.level.width; x++) {
             for (var y = 0; y < this.level.height; y++) {
                 if (p.abs(x - this.level.width / 2) > p.floor(width / 6) && p.random() < 0.1) {
@@ -121,10 +152,10 @@ var GameState = (function () {
                 }
             }
         }
-        this.actor = new Actor(this.level.width / 2, this.level.height / 2, 160);
     }
     GameState.prototype.update = function () {
         this.actor.update();
+        this.collisions = this.actor.raycast(this.level.cells);
     };
     return GameState;
 }());
@@ -255,27 +286,6 @@ var Square = (function (_super) {
     }
     return Square;
 }(Rectangle));
-var p;
-var sketch = function (context) {
-    p = context;
-    var game;
-    p.setup = function () {
-        p.createCanvas(p.windowWidth, p.windowHeight, p.P2D);
-        p.frameRate(60);
-        p.textSize(30);
-        var state = new GameState(50, 30);
-        var view = new CompositeView([
-            new RaycastView(0, 0, p.width / 2, p.height, state),
-            new FirstPersonView(p.width / 2, 0, p.width / 2, p.height, state)
-        ]);
-        game = new GameController(state, view);
-    };
-    p.draw = function () {
-        p.background(0);
-        game.update();
-    };
-};
-var sketchP5 = new p5(sketch);
 var View = (function () {
     function View(x, y, width, height) {
         this.x = x;
@@ -285,6 +295,23 @@ var View = (function () {
     }
     return View;
 }());
+var CompositeView = (function (_super) {
+    __extends(CompositeView, _super);
+    function CompositeView(views) {
+        var _this = this;
+        var x = p.min(views.map(function (t) { return t.x; }));
+        var y = p.min(views.map(function (t) { return t.y; }));
+        var width = p.max(views.map(function (t) { return t.x; })) - x;
+        var height = p.max(views.map(function (t) { return t.x; })) - y;
+        _this = _super.call(this, x, y, width, height) || this;
+        _this.views = views;
+        return _this;
+    }
+    CompositeView.prototype.render = function () {
+        this.views.forEach(function (x) { return x.render(); });
+    };
+    return CompositeView;
+}(View));
 var GameView = (function (_super) {
     __extends(GameView, _super);
     function GameView(x, y, width, height, state) {
@@ -293,7 +320,7 @@ var GameView = (function (_super) {
         return _this;
     }
     GameView.prototype.render = function () {
-        this.renderCollisions(this.state.actor.raycast(this.state.level.cells));
+        this.renderCollisions(this.state.collisions);
     };
     return GameView;
 }(View));
@@ -304,13 +331,9 @@ var RaycastView = (function (_super) {
     }
     RaycastView.prototype.renderCollisions = function (collisions) {
         var _this = this;
-        var scale = 1;
-        if (this.width < this.height) {
-            scale = this.width / (this.state.level.width * this.state.level.cellSize);
-        }
-        else {
-            scale = this.height / (this.state.level.height * this.state.level.cellSize);
-        }
+        var scaleX = this.width / (this.state.level.width * this.state.level.cellSize);
+        var scaleY = this.height / (this.state.level.height * this.state.level.cellSize);
+        var scale = p.min(scaleX, scaleY);
         p.push();
         p.translate(this.x, this.y);
         p.scale(scale);
@@ -370,21 +393,4 @@ var FirstPersonView = (function (_super) {
     };
     return FirstPersonView;
 }(GameView));
-var CompositeView = (function (_super) {
-    __extends(CompositeView, _super);
-    function CompositeView(views) {
-        var _this = this;
-        var x = p.min(views.map(function (t) { return t.x; }));
-        var y = p.min(views.map(function (t) { return t.y; }));
-        var width = p.max(views.map(function (t) { return t.x; })) - x;
-        var height = p.max(views.map(function (t) { return t.x; })) - y;
-        _this = _super.call(this, x, y, width, height) || this;
-        _this.views = views;
-        return _this;
-    }
-    CompositeView.prototype.render = function () {
-        this.views.forEach(function (x) { return x.render(); });
-    };
-    return CompositeView;
-}(View));
 //# sourceMappingURL=build.js.map
