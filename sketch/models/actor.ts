@@ -1,10 +1,10 @@
-class Actor{
+class Actor {
     pos: p5.Vector;
     angle: number;
     fov: number;
     rays: Ray[];
 
-    constructor(x: number, y: number, nRays: number = 160) {
+    constructor(x: number, y: number, nRays: number = 320) {
         this.pos = p.createVector(x, y);
         this.angle = 0;
         this.fov = p.radians(60);

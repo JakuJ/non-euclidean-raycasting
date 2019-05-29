@@ -122,13 +122,19 @@ class FirstPersonView extends GameView {
                 const offset = p.map(this.state.actor.rays[i].angle, this.state.actor.angle - this.state.actor.fov / 2, this.state.actor.angle + this.state.actor.fov / 2, 0, this.width);
                 const alpha = this.state.actor.rays[i].angle - this.state.actor.angle;
                 const cameraDist = c.distance * p.cos(alpha);
-                const h = p.min(this.height, this.height / cameraDist * (this.width / (p.displayHeight / c.segment.h)));
+                const h = this.height / cameraDist * (this.width / (p.displayHeight / c.segment.h));
 
                 p.push();
                 p.translate(this.x, this.y);
-                p.fill(c.segment.c);
-                p.rectMode(p.CENTER);
-                p.rect(offset + 0.5 * w, this.height / 2, w, h);
+                
+                const ai = p5.Vector.dist(c.segment.a, c.point);
+                const ib = p5.Vector.dist(c.segment.b, c.point);
+                
+                const sx = ai / (ai + ib) * c.segment.texture.width;
+                const sw = c.segment.texture.width / this.state.actor.rays.length * ((c.segment.length * p.sqrt(3) / 2) / cameraDist);
+
+                p.imageMode(p.CENTER);
+                p.image(c.segment.texture, offset + 0.5 * w, this.height / 2, w, h, sx, 0, sw, c.segment.texture.height);
                 p.pop();
             }
         });

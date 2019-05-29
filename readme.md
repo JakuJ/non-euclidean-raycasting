@@ -6,13 +6,12 @@ Working:
 * Naive raycasting - O(rays * segments)
 * Compliance with MVC pattern
 * Segment height and width ratio independent from display size
+* Texturing
 
 Views:
 * 2D level view
 * Pseudo-3D first person view
 * FPS counter
-
-
 
 Move with WSAD, run with left Shift, look around with your mouse. Change views / level size in the setup function.
 

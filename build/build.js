@@ -2,8 +2,6 @@ var p;
 var sketch = function (context) {
     p = context;
     var game;
-    p.preload = function () {
-    };
     p.setup = function () {
         p.createCanvas(p.windowWidth, p.windowHeight, p.P2D);
         p.frameRate(60);
@@ -20,17 +18,6 @@ var sketch = function (context) {
         p.background(0);
         game.update();
     };
-};
-var skewImage = function (image, x, y, sliceWidth, left, right) {
-    var slices = p.floor(image.width / sliceWidth);
-    var sw = p.floor(image.width / slices);
-    var step = (right - left) / slices;
-    var h = left;
-    p.imageMode(p.CENTER);
-    for (var i = 0; i < slices; i++) {
-        p.image(image, x + (i + 0.5) * sliceWidth, y, sliceWidth, h, i * sw, 0, sw, image.height);
-        h += step;
-    }
 };
 var sketchP5 = new p5(sketch);
 var GameController = (function () {
@@ -85,7 +72,7 @@ var GameController = (function () {
 }());
 var Actor = (function () {
     function Actor(x, y, nRays) {
-        if (nRays === void 0) { nRays = 160; }
+        if (nRays === void 0) { nRays = 320; }
         this.pos = p.createVector(x, y);
         this.angle = 0;
         this.fov = p.radians(60);
@@ -242,16 +229,16 @@ var __extends = (this && this.__extends) || (function () {
     };
 })();
 var Segment = (function () {
-    function Segment(x1, y1, x2, y2, h, clr) {
-        if (clr === void 0) { clr = null; }
+    function Segment(x1, y1, x2, y2, h, tex) {
+        if (tex === void 0) { tex = null; }
         this.a = p.createVector(x1, y1);
         this.b = p.createVector(x2, y2);
         this.h = h;
-        if (clr) {
-            this.c = clr;
+        if (tex) {
+            this.texture = tex;
         }
         else {
-            this.c = p.color(p.random(255), p.random(255), p.random(255));
+            this.texture = p.loadImage('../../assets/textures/wall.bmp');
         }
     }
     Segment.prototype.getSegments = function () {
@@ -265,7 +252,7 @@ var Segment = (function () {
         configurable: true
     });
     Segment.prototype.show = function () {
-        p.stroke(this.c);
+        p.stroke(255, 0, 0);
         p.line(this.a.x, this.a.y, this.b.x, this.b.y);
     };
     return Segment;
@@ -276,21 +263,18 @@ var Rectangle = (function () {
         this.a = a;
         this.b = b;
         this.h = h;
-        var clr = p.color(p.random(255), p.random(255), p.random(255));
+        this.texture = p.loadImage("../../assets/textures/" + (p.random() < 0.5 ? 'archs' : 'wall') + ".bmp");
         this.segments = new Array(4);
-        this.segments[0] = new Segment(this.position.x, this.position.y, this.position.x + this.a, this.position.y, this.h, clr);
-        this.segments[1] = new Segment(this.position.x, this.position.y, this.position.x, this.position.y + this.b, this.h, clr);
-        this.segments[2] = new Segment(this.position.x + this.a, this.position.y, this.position.x + this.a, this.position.y + this.b, this.h, clr);
-        this.segments[3] = new Segment(this.position.x, this.position.y + this.b, this.position.x + this.a, this.position.y + this.b, this.h, clr);
+        this.segments[0] = new Segment(this.position.x, this.position.y, this.position.x + this.a, this.position.y, this.h, this.texture);
+        this.segments[1] = new Segment(this.position.x, this.position.y, this.position.x, this.position.y + this.b, this.h, this.texture);
+        this.segments[2] = new Segment(this.position.x + this.a, this.position.y, this.position.x + this.a, this.position.y + this.b, this.h, this.texture);
+        this.segments[3] = new Segment(this.position.x, this.position.y + this.b, this.position.x + this.a, this.position.y + this.b, this.h, this.texture);
     }
     Rectangle.prototype.getSegments = function () {
         return this.segments;
     };
     Rectangle.prototype.show = function () {
-        for (var _i = 0, _a = this.segments; _i < _a.length; _i++) {
-            var segment = _a[_i];
-            segment.show();
-        }
+        p.image(this.texture, this.position.x, this.position.y, this.a, this.b);
     };
     return Rectangle;
 }());
@@ -406,12 +390,15 @@ var FirstPersonView = (function (_super) {
                 var offset = p.map(_this.state.actor.rays[i].angle, _this.state.actor.angle - _this.state.actor.fov / 2, _this.state.actor.angle + _this.state.actor.fov / 2, 0, _this.width);
                 var alpha_1 = _this.state.actor.rays[i].angle - _this.state.actor.angle;
                 var cameraDist = c.distance * p.cos(alpha_1);
-                var h = p.min(_this.height, _this.height / cameraDist * (_this.width / (p.displayHeight / c.segment.h)));
+                var h = _this.height / cameraDist * (_this.width / (p.displayHeight / c.segment.h));
                 p.push();
                 p.translate(_this.x, _this.y);
-                p.fill(c.segment.c);
-                p.rectMode(p.CENTER);
-                p.rect(offset + 0.5 * w, _this.height / 2, w, h);
+                var ai = p5.Vector.dist(c.segment.a, c.point);
+                var ib = p5.Vector.dist(c.segment.b, c.point);
+                var sx = ai / (ai + ib) * c.segment.texture.width;
+                var sw = c.segment.texture.width / _this.state.actor.rays.length * ((c.segment.length * p.sqrt(3) / 2) / cameraDist);
+                p.imageMode(p.CENTER);
+                p.image(c.segment.texture, offset + 0.5 * w, _this.height / 2, w, h, sx, 0, sw, c.segment.texture.height);
                 p.pop();
             }
         });
