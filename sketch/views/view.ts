@@ -41,7 +41,9 @@ class CompositeView extends View {
     }
 
     render(): void {
-        this.views.forEach(x => x.render());
+        for (let i = 0; i < this.views.length; i++) {
+            this.views[i].render();
+        }
     }
 }
 
@@ -72,13 +74,15 @@ class RaycastView extends GameView {
 
         p.push();
         p.translate(this.x, this.y);
+
         // background
         p.fill(0);
         p.rect(0, 0, this.width, this.height);
 
         p.scale(scale);
 
-        for (let x of this.state.level.cells) {
+        for (let i = this.state.level.cells.length - 1; i >= 0; --i) {
+            const x = this.state.level.cells[i];
             if (x) {
                 x.show();
             }
@@ -87,12 +91,12 @@ class RaycastView extends GameView {
         p.strokeWeight(0.5);
         p.stroke(255, 150);
 
-        collisions.forEach((cols, i) => {
-            if (cols.length > 0) {
-                const closest = cols.sort((x, y) => x.distance - y.distance)[0].point;
+        for (let i = 0; i < collisions.length; i++) {
+            if (collisions[i].length > 0) {
+                const closest = collisions[i].sort((x, y) => x.distance - y.distance)[0].point;
                 p.line(this.state.actor.rays[i].pos.x, this.state.actor.rays[i].pos.y, closest.x, closest.y);
             }
-        });
+        }
 
         p.stroke(255, 255);
         p.fill(255);
@@ -117,8 +121,12 @@ class FirstPersonView extends GameView {
         const w = this.width / this.state.actor.rays.length;
         const h_coeff = this.height * this.width / p.displayHeight;
 
-        collisions.forEach((cols, i) => {
-            cols.sort((x, y) => (y.distance - x.distance)).forEach((c, j) => {
+        for (let i = 0; i < collisions.length; i++) {
+            const cols = collisions[i].sort((x, y) => (y.distance - x.distance));
+
+            for (let j = 0; j < cols.length; j++) {
+                const c = cols[j];
+
                 const offset = p.map(this.state.actor.rays[i].angle, this.state.actor.angle - this.state.actor.fov * 0.5, this.state.actor.angle + this.state.actor.fov * 0.5, 0, this.width);
                 const alpha = this.state.actor.rays[i].angle - this.state.actor.angle;
                 const cameraDist = c.distance * p.cos(alpha);
@@ -136,9 +144,9 @@ class FirstPersonView extends GameView {
                 const sw = c.segment.texture.width * c.segment.length * p.sqrt(0.75) / (cameraDist * this.state.actor.rays.length);
 
                 p.imageMode(p.CORNER);
-                p.image(c.segment.texture, offset + 0.5 * w, baseline, w, -h, sx, 0, sw, c.segment.texture.height);
+                p.image(c.segment.texture, offset + 0.5 * w, baseline - h, w, h, sx, 0, sw, c.segment.texture.height);
                 p.pop();
-            });
-        });
+            }
+        }
     }
 }

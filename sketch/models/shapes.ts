@@ -14,12 +14,7 @@ class Segment implements IShape {
         this.b = p.createVector(x2, y2);
         this.h = h;
 
-        if (tex) {
-            this.texture = tex;
-        }
-        else {
-            this.texture = p.loadImage('../../assets/textures/wall.bmp');
-        }
+        this.texture = tex || p.loadImage('../../assets/textures/wall.bmp');        
     }
 
     public getSegments(): Segment[] {

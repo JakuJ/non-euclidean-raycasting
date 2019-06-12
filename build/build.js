@@ -89,28 +89,30 @@ var Actor = (function () {
         this.pos.add(front).add(side);
     };
     Actor.prototype.update = function () {
-        for (var i = 0, a = this.angle - this.fov / 2; i < this.rays.length; i++, a += this.fov / this.rays.length) {
+        var da = this.fov / this.rays.length;
+        for (var i = 0, a = this.angle - this.fov * 0.5; i < this.rays.length; i++) {
             this.rays[i].pos = this.pos;
             this.rays[i].angle = a;
+            a += da;
         }
     };
     Actor.prototype.raycast = function (shapes) {
-        var _this = this;
-        return this.rays.map(function (ray) {
+        var ret = new Array(this.rays.length);
+        for (var i = 0; i < ret.length; i++) {
             var collisions = [];
-            for (var _i = 0, shapes_1 = shapes; _i < shapes_1.length; _i++) {
-                var shape = shapes_1[_i];
-                if (!shape) {
+            for (var j = 0; j < shapes.length; j++) {
+                if (!shapes[j]) {
                     continue;
                 }
-                var hit = ray.cast(shape);
+                var hit = this.rays[i].cast(shapes[j]);
                 if (hit) {
-                    var d = p.dist(_this.pos.x, _this.pos.y, hit.point.x, hit.point.y);
+                    var d = p.dist(this.pos.x, this.pos.y, hit.point.x, hit.point.y);
                     collisions.push({ point: hit.point, segment: hit.segment, distance: d });
                 }
             }
-            return collisions;
-        });
+            ret[i] = collisions;
+        }
+        return ret;
     };
     return Actor;
 }());
@@ -169,21 +171,22 @@ var Ray = (function () {
         var closest;
         var target;
         var dist = Infinity;
-        for (var _i = 0, _a = shape.getSegments(); _i < _a.length; _i++) {
-            var segment = _a[_i];
-            var pt = this.castSegment(segment);
+        var segments = shape.getSegments();
+        for (var i = 0; i < segments.length; i++) {
+            var pt = this.castSegment(segments[i]);
             if (pt) {
                 var d = p.dist(this.pos.x, this.pos.y, pt.x, pt.y);
                 if (d < dist) {
                     dist = d;
                     closest = pt;
-                    target = segment;
+                    target = segments[i];
                 }
             }
         }
         if (closest) {
             return { point: closest, segment: target };
         }
+        return null;
     };
     Ray.prototype.castSegment = function (wall) {
         var x1 = wall.a.x;
@@ -223,12 +226,7 @@ var Segment = (function () {
         this.a = p.createVector(x1, y1);
         this.b = p.createVector(x2, y2);
         this.h = h;
-        if (tex) {
-            this.texture = tex;
-        }
-        else {
-            this.texture = p.loadImage('../../assets/textures/wall.bmp');
-        }
+        this.texture = tex || p.loadImage('../../assets/textures/wall.bmp');
     }
     Segment.prototype.getSegments = function () {
         return [this];
@@ -344,7 +342,9 @@ var CompositeView = (function (_super) {
         return _this;
     }
     CompositeView.prototype.render = function () {
-        this.views.forEach(function (x) { return x.render(); });
+        for (var i = 0; i < this.views.length; i++) {
+            this.views[i].render();
+        }
     };
     return CompositeView;
 }(View));
@@ -366,7 +366,6 @@ var RaycastView = (function (_super) {
         return _super.call(this, x, y, width, height, state) || this;
     }
     RaycastView.prototype.renderCollisions = function (collisions) {
-        var _this = this;
         var scaleX = this.width / (this.state.level.width * this.state.level.cellSize);
         var scaleY = this.height / (this.state.level.height * this.state.level.cellSize);
         var scale = p.min(scaleX, scaleY);
@@ -375,20 +374,20 @@ var RaycastView = (function (_super) {
         p.fill(0);
         p.rect(0, 0, this.width, this.height);
         p.scale(scale);
-        for (var _i = 0, _a = this.state.level.cells; _i < _a.length; _i++) {
-            var x = _a[_i];
+        for (var i = this.state.level.cells.length - 1; i >= 0; --i) {
+            var x = this.state.level.cells[i];
             if (x) {
                 x.show();
             }
         }
         p.strokeWeight(0.5);
         p.stroke(255, 150);
-        collisions.forEach(function (cols, i) {
-            if (cols.length > 0) {
-                var closest = cols.sort(function (x, y) { return x.distance - y.distance; })[0].point;
-                p.line(_this.state.actor.rays[i].pos.x, _this.state.actor.rays[i].pos.y, closest.x, closest.y);
+        for (var i = 0; i < collisions.length; i++) {
+            if (collisions[i].length > 0) {
+                var closest = collisions[i].sort(function (x, y) { return x.distance - y.distance; })[0].point;
+                p.line(this.state.actor.rays[i].pos.x, this.state.actor.rays[i].pos.y, closest.x, closest.y);
             }
-        });
+        }
         p.stroke(255, 255);
         p.fill(255);
         p.ellipse(this.state.actor.pos.x, this.state.actor.pos.y, 20 / scale, 20 / scale);
@@ -402,7 +401,6 @@ var FirstPersonView = (function (_super) {
         return _super.call(this, x, y, width, height, state) || this;
     }
     FirstPersonView.prototype.renderCollisions = function (collisions) {
-        var _this = this;
         p.noStroke();
         p.fill('#87CEEB');
         p.rect(this.x, this.y, this.width, this.height * 0.5);
@@ -410,24 +408,26 @@ var FirstPersonView = (function (_super) {
         p.rect(this.x, this.y + this.height * 0.5, this.width, this.height * 0.5);
         var w = this.width / this.state.actor.rays.length;
         var h_coeff = this.height * this.width / p.displayHeight;
-        collisions.forEach(function (cols, i) {
-            cols.sort(function (x, y) { return (y.distance - x.distance); }).forEach(function (c, j) {
-                var offset = p.map(_this.state.actor.rays[i].angle, _this.state.actor.angle - _this.state.actor.fov * 0.5, _this.state.actor.angle + _this.state.actor.fov * 0.5, 0, _this.width);
-                var alpha = _this.state.actor.rays[i].angle - _this.state.actor.angle;
-                var cameraDist = c.distance * p.cos(alpha);
-                var baseline = 0.5 * (_this.height + h_coeff * _this.state.level.cellSize / cameraDist);
+        for (var i = 0; i < collisions.length; i++) {
+            var cols = collisions[i].sort(function (x, y) { return (y.distance - x.distance); });
+            for (var j = 0; j < cols.length; j++) {
+                var c = cols[j];
+                var offset = p.map(this.state.actor.rays[i].angle, this.state.actor.angle - this.state.actor.fov * 0.5, this.state.actor.angle + this.state.actor.fov * 0.5, 0, this.width);
+                var alpha_1 = this.state.actor.rays[i].angle - this.state.actor.angle;
+                var cameraDist = c.distance * p.cos(alpha_1);
+                var baseline = 0.5 * (this.height + h_coeff * this.state.level.cellSize / cameraDist);
                 var h = h_coeff * c.segment.h / cameraDist;
                 p.push();
-                p.translate(_this.x, _this.y);
+                p.translate(this.x, this.y);
                 var ai = p5.Vector.dist(c.segment.a, c.point);
                 var ib = p5.Vector.dist(c.segment.b, c.point);
                 var sx = ai / (ai + ib) * c.segment.texture.width;
-                var sw = c.segment.texture.width * c.segment.length * p.sqrt(0.75) / (cameraDist * _this.state.actor.rays.length);
+                var sw = c.segment.texture.width * c.segment.length * p.sqrt(0.75) / (cameraDist * this.state.actor.rays.length);
                 p.imageMode(p.CORNER);
-                p.image(c.segment.texture, offset + 0.5 * w, baseline, w, -h, sx, 0, sw, c.segment.texture.height);
+                p.image(c.segment.texture, offset + 0.5 * w, baseline - h, w, h, sx, 0, sw, c.segment.texture.height);
                 p.pop();
-            });
-        });
+            }
+        }
     };
     return FirstPersonView;
 }(GameView));

@@ -22,20 +22,23 @@ class Ray {
         var target: Segment;
         var dist = Infinity;
 
-        for (let segment of shape.getSegments()) {
-            const pt = this.castSegment(segment);
+        const segments = shape.getSegments();
+        for (let i = 0; i < segments.length; i++) {
+            const pt = this.castSegment(segments[i]);
             if (pt) {
                 const d = p.dist(this.pos.x, this.pos.y, pt.x, pt.y);
                 if (d < dist) {
                     dist = d;
                     closest = pt;
-                    target = segment;
+                    target = segments[i];
                 }
             }
         }
         if (closest) {
             return { point: closest, segment: target };
         }
+
+        return null;
     }
 
     private castSegment(wall: Segment): p5.Vector {
@@ -56,7 +59,7 @@ class Ray {
 
         const t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / den;
         const u = -((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3)) / den;
-        
+
         if (t > 0 && t < 1 && u > 0) {
             return p.createVector(x1 + t * (x2 - x1), y1 + t * (y2 - y1));
         }
