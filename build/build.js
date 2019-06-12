@@ -96,24 +96,20 @@ var Actor = (function () {
     };
     Actor.prototype.raycast = function (shapes) {
         var _this = this;
-        return this.rays.map(function (ray, i) {
-            var collided = null;
-            var dist = Infinity;
+        return this.rays.map(function (ray) {
+            var collisions = [];
             for (var _i = 0, shapes_1 = shapes; _i < shapes_1.length; _i++) {
                 var shape = shapes_1[_i];
                 if (!shape) {
                     continue;
                 }
-                var t = ray.cast(shape);
-                if (t) {
-                    var d = p.dist(_this.pos.x, _this.pos.y, t.point.x, t.point.y);
-                    if (d < dist) {
-                        dist = d;
-                        collided = t;
-                    }
+                var hit = ray.cast(shape);
+                if (hit) {
+                    var d = p.dist(_this.pos.x, _this.pos.y, hit.point.x, hit.point.y);
+                    collisions.push({ point: hit.point, segment: hit.segment, distance: d });
                 }
             }
-            return collided ? { point: collided.point, segment: collided.segment, distance: dist } : null;
+            return collisions;
         });
     };
     return Actor;
@@ -128,12 +124,6 @@ var Level = (function () {
     Level.prototype.add = function (shape) {
         this.cells.push(shape);
     };
-    Level.prototype.addSquare = function (x, y) {
-        if (x < 0 || x > this.width || y < 0 || y > this.height) {
-            throw new Error("Cell out of bounds");
-        }
-        this.add(new Square(x * this.cellSize, y * this.cellSize, this.cellSize));
-    };
     return Level;
 }());
 var GameState = (function () {
@@ -141,10 +131,14 @@ var GameState = (function () {
         this.collisions = [];
         this.level = new Level(width, height);
         this.actor = new Actor(this.level.width * this.level.cellSize / 2, this.level.height * this.level.cellSize / 2);
+        var textures = ['../../assets/textures/wall.bmp', '../../assets/textures/archs.bmp'].map(function (x) { return p.loadImage(x); });
+        var a = this.level.cellSize;
         for (var x = 0; x < this.level.width; x++) {
             for (var y = 0; y < this.level.height; y++) {
                 if (p.abs(x - this.level.width / 2) > p.floor(width / 6) && p.random() < 0.1) {
-                    this.level.addSquare(x, y);
+                    var magic = (x + y) % 2;
+                    var h = a * (1 + p.random());
+                    this.level.add(new RegularPolygon(x * a, y * a, p.floor(p.random() * 3) + 3, a / 2, h, textures[magic]));
                 }
             }
         }
@@ -202,19 +196,14 @@ var Ray = (function () {
         var y4 = this.pos.y + this.dir.y;
         var den = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
         if (den == 0) {
-            return;
+            return null;
         }
         var t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / den;
         var u = -((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3)) / den;
         if (t > 0 && t < 1 && u > 0) {
-            var pt = p.createVector();
-            pt.x = x1 + t * (x2 - x1);
-            pt.y = y1 + t * (y2 - y1);
-            return pt;
+            return p.createVector(x1 + t * (x2 - x1), y1 + t * (y2 - y1));
         }
-        else {
-            return;
-        }
+        return null;
     };
     return Ray;
 }());
@@ -257,6 +246,42 @@ var Segment = (function () {
     };
     return Segment;
 }());
+var Polygon = (function () {
+    function Polygon(segments) {
+        this.x = p.min(segments.map(function (s) { return p.min(s.a.x, s.b.x); }));
+        this.y = p.min(segments.map(function (s) { return p.min(s.a.y, s.b.y); }));
+        this.h = p.max(segments.map(function (s) { return s.h; }));
+        this.segments = segments;
+    }
+    Polygon.prototype.getSegments = function () {
+        return this.segments;
+    };
+    Polygon.prototype.show = function () {
+        p.stroke(255);
+        for (var _i = 0, _a = this.segments; _i < _a.length; _i++) {
+            var s = _a[_i];
+            p.line(s.a.x, s.a.y, s.b.x, s.b.y);
+        }
+    };
+    return Polygon;
+}());
+var RegularPolygon = (function (_super) {
+    __extends(RegularPolygon, _super);
+    function RegularPolygon(x, y, n, r, h, tex) {
+        var _this = this;
+        var segments = [];
+        for (var i = 0; i < n; i++) {
+            var x1 = r * p.cos(p.TWO_PI * i / n) + x;
+            var y1 = r * p.sin(p.TWO_PI * i / n) + y;
+            var x2 = r * p.cos(p.TWO_PI * ((i + 1) % n) / n) + x;
+            var y2 = r * p.sin(p.TWO_PI * ((i + 1) % n) / n) + y;
+            segments.push(new Segment(x1, y1, x2, y2, h, tex));
+        }
+        _this = _super.call(this, segments) || this;
+        return _this;
+    }
+    return RegularPolygon;
+}(Polygon));
 var Rectangle = (function () {
     function Rectangle(x, y, a, b, h) {
         this.position = p.createVector(x, y);
@@ -358,10 +383,9 @@ var RaycastView = (function (_super) {
         }
         p.strokeWeight(0.5);
         p.stroke(255, 150);
-        var seen = new Map();
-        collisions.forEach(function (c, i) {
-            if (c && !seen.has(c.segment)) {
-                var closest = c.point;
+        collisions.forEach(function (cols, i) {
+            if (cols.length > 0) {
+                var closest = cols.sort(function (x, y) { return x.distance - y.distance; })[0].point;
                 p.line(_this.state.actor.rays[i].pos.x, _this.state.actor.rays[i].pos.y, closest.x, closest.y);
             }
         });
@@ -381,26 +405,28 @@ var FirstPersonView = (function (_super) {
         var _this = this;
         p.noStroke();
         p.fill('#87CEEB');
-        p.rect(this.x, this.y, this.width, this.height / 2);
+        p.rect(this.x, this.y, this.width, this.height * 0.5);
         p.fill('#694629');
-        p.rect(this.x, this.y + this.height / 2, this.width, this.height / 2);
+        p.rect(this.x, this.y + this.height * 0.5, this.width, this.height * 0.5);
         var w = this.width / this.state.actor.rays.length;
-        collisions.forEach(function (c, i) {
-            if (c) {
-                var offset = p.map(_this.state.actor.rays[i].angle, _this.state.actor.angle - _this.state.actor.fov / 2, _this.state.actor.angle + _this.state.actor.fov / 2, 0, _this.width);
-                var alpha_1 = _this.state.actor.rays[i].angle - _this.state.actor.angle;
-                var cameraDist = c.distance * p.cos(alpha_1);
-                var h = _this.height / cameraDist * (_this.width / (p.displayHeight / c.segment.h));
+        var h_coeff = this.height * this.width / p.displayHeight;
+        collisions.forEach(function (cols, i) {
+            cols.sort(function (x, y) { return (y.distance - x.distance); }).forEach(function (c, j) {
+                var offset = p.map(_this.state.actor.rays[i].angle, _this.state.actor.angle - _this.state.actor.fov * 0.5, _this.state.actor.angle + _this.state.actor.fov * 0.5, 0, _this.width);
+                var alpha = _this.state.actor.rays[i].angle - _this.state.actor.angle;
+                var cameraDist = c.distance * p.cos(alpha);
+                var baseline = 0.5 * (_this.height + h_coeff * _this.state.level.cellSize / cameraDist);
+                var h = h_coeff * c.segment.h / cameraDist;
                 p.push();
                 p.translate(_this.x, _this.y);
                 var ai = p5.Vector.dist(c.segment.a, c.point);
                 var ib = p5.Vector.dist(c.segment.b, c.point);
                 var sx = ai / (ai + ib) * c.segment.texture.width;
-                var sw = c.segment.texture.width / _this.state.actor.rays.length * ((c.segment.length * p.sqrt(3) / 2) / cameraDist);
-                p.imageMode(p.CENTER);
-                p.image(c.segment.texture, offset + 0.5 * w, _this.height / 2, w, h, sx, 0, sw, c.segment.texture.height);
+                var sw = c.segment.texture.width * c.segment.length * p.sqrt(0.75) / (cameraDist * _this.state.actor.rays.length);
+                p.imageMode(p.CORNER);
+                p.image(c.segment.texture, offset + 0.5 * w, baseline, w, -h, sx, 0, sw, c.segment.texture.height);
                 p.pop();
-            }
+            });
         });
     };
     return FirstPersonView;

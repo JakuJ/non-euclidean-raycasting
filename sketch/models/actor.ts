@@ -31,25 +31,22 @@ class Actor {
         }
     }
 
-    raycast(shapes: IShape[]): { point: p5.Vector, segment: Segment, distance: number }[] {
-        return this.rays.map((ray, i) => {
-            var collided: { point: p5.Vector, segment: Segment } = null;
-            var dist = Infinity;
+    raycast(shapes: IShape[]): { point: p5.Vector, segment: Segment, distance: number }[][] {
+        return this.rays.map(ray => {
+            var collisions: { point: p5.Vector, segment: Segment, distance: number }[] = [];
 
             for (let shape of shapes) {
                 if (!shape) {
                     continue;
                 }
-                const t = ray.cast(shape);
-                if (t) {
-                    const d = p.dist(this.pos.x, this.pos.y, t.point.x, t.point.y);
-                    if (d < dist) {
-                        dist = d;
-                        collided = t;
-                    }
+                const hit = ray.cast(shape);
+                if (hit) {
+                    const d = p.dist(this.pos.x, this.pos.y, hit.point.x, hit.point.y);
+                    
+                    collisions.push({point: hit.point, segment: hit.segment, distance: d});
                 }
             }
-            return collided ? { point: collided.point, segment: collided.segment, distance: dist } : null;
+            return collisions;
         });
     }
 }

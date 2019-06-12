@@ -33,18 +33,5 @@ var sketch = (context: p5) => {
     }
 }
 
-// TODO: USE WITH TRAPEZOIDS
-// var skewImage = (image: p5.Image, x: number, y: number, sliceWidth: number, left: number, right: number) => {
-//     const slices = p.floor(image.width / sliceWidth);
-//     const sw = p.floor(image.width / slices);
-//     const step = (right - left) / slices;
-//     var h = left;
-
-//     p.imageMode(p.CENTER);
-//     for (let i = 0; i < slices; i++) {
-//         p.image(image, x + (i + 0.5) * sliceWidth, y, sliceWidth, h, i * sw, 0, sw, image.height);
-//         h += step;
-//     }
-// }
 
 var sketchP5 = new p5(sketch);

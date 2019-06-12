@@ -36,6 +36,50 @@ class Segment implements IShape {
     }
 }
 
+class Polygon implements IShape {
+    x: number;
+    y: number;
+    h: number;
+    segments: Segment[];
+
+    constructor(segments: Segment[]) {
+        this.x = p.min(segments.map(s => p.min(s.a.x, s.b.x)));
+        this.y = p.min(segments.map(s => p.min(s.a.y, s.b.y)));
+        this.h = p.max(segments.map(s => s.h));
+        
+        this.segments = segments;
+    }
+
+    getSegments(): Segment[] {
+        return this.segments;
+    }
+
+    show(): void {
+        p.stroke(255);
+        for (let s of this.segments) {
+            p.line(s.a.x, s.a.y, s.b.x, s.b.y);
+        }
+    }
+}
+
+class RegularPolygon extends Polygon {
+    constructor(x: number, y: number, n: number, r: number, h: number, tex: p5.Image) {
+        var segments: Segment[] = [];
+        
+        for (let i = 0; i < n; i++) {
+            const x1 = r * p.cos(p.TWO_PI * i / n) + x;
+            const y1 = r * p.sin(p.TWO_PI * i / n) + y;
+
+            const x2 = r * p.cos(p.TWO_PI * ((i + 1) % n) / n) + x;
+            const y2 = r * p.sin(p.TWO_PI * ((i + 1) % n) / n) + y;
+
+            segments.push(new Segment(x1, y1, x2, y2, h, tex));
+        }
+
+        super(segments);
+    }
+}
+
 class Rectangle implements IShape {
     protected position: p5.Vector;
     protected a: number;

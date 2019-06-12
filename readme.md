@@ -6,6 +6,7 @@ Working:
 * Naive raycasting - O(rays * segments)
 * Compliance with MVC pattern
 * Segment height and width ratio independent from display size
+* Proper rendering of objects of different height
 * Texturing
 
 Views:

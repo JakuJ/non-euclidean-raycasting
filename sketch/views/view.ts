@@ -53,7 +53,7 @@ abstract class GameView extends View {
         this.state = state;
     }
 
-    abstract renderCollisions(collisions: { point: p5.Vector, segment: Segment, distance: number }[]): void;
+    abstract renderCollisions(collisions: { point: p5.Vector, segment: Segment, distance: number }[][]): void;
 
     render() {
         this.renderCollisions(this.state.collisions);
@@ -65,7 +65,7 @@ class RaycastView extends GameView {
         super(x, y, width, height, state);
     }
 
-    renderCollisions(collisions: { point: p5.Vector, segment: Segment, distance: number }[]): void {
+    renderCollisions(collisions: { point: p5.Vector, segment: Segment, distance: number }[][]): void {
         const scaleX = this.width / (this.state.level.width * this.state.level.cellSize);
         const scaleY = this.height / (this.state.level.height * this.state.level.cellSize);
         const scale = p.min(scaleX, scaleY);
@@ -75,7 +75,7 @@ class RaycastView extends GameView {
         // background
         p.fill(0);
         p.rect(0, 0, this.width, this.height);
-        
+
         p.scale(scale);
 
         for (let x of this.state.level.cells) {
@@ -87,11 +87,9 @@ class RaycastView extends GameView {
         p.strokeWeight(0.5);
         p.stroke(255, 150);
 
-        const seen = new Map<Segment, number[]>();
-        collisions.forEach((c, i) => {
-            if (c && !seen.has(c.segment)) {
-                //seen.set(c.segment, [1]);
-                const closest = c.point;
+        collisions.forEach((cols, i) => {
+            if (cols.length > 0) {
+                const closest = cols.sort((x, y) => x.distance - y.distance)[0].point;
                 p.line(this.state.actor.rays[i].pos.x, this.state.actor.rays[i].pos.y, closest.x, closest.y);
             }
         });
@@ -108,35 +106,39 @@ class FirstPersonView extends GameView {
         super(x, y, width, height, state);
     }
 
-    renderCollisions(collisions: { point: p5.Vector, segment: Segment, distance: number }[]): void {
+    // actor's perceived "height" is half the level's cell size
+    renderCollisions(collisions: { point: p5.Vector, segment: Segment, distance: number }[][]): void {
         p.noStroke();
         p.fill('#87CEEB');
-        p.rect(this.x, this.y, this.width, this.height / 2);
+        p.rect(this.x, this.y, this.width, this.height * 0.5);
         p.fill('#694629');
-        p.rect(this.x, this.y + this.height / 2, this.width, this.height / 2);
+        p.rect(this.x, this.y + this.height * 0.5, this.width, this.height * 0.5);
 
         const w = this.width / this.state.actor.rays.length;
+        const h_coeff = this.height * this.width / p.displayHeight;
 
-        collisions.forEach((c, i) => {
-            if (c) {
-                const offset = p.map(this.state.actor.rays[i].angle, this.state.actor.angle - this.state.actor.fov / 2, this.state.actor.angle + this.state.actor.fov / 2, 0, this.width);
+        collisions.forEach((cols, i) => {
+            cols.sort((x, y) => (y.distance - x.distance)).forEach((c, j) => {
+                const offset = p.map(this.state.actor.rays[i].angle, this.state.actor.angle - this.state.actor.fov * 0.5, this.state.actor.angle + this.state.actor.fov * 0.5, 0, this.width);
                 const alpha = this.state.actor.rays[i].angle - this.state.actor.angle;
                 const cameraDist = c.distance * p.cos(alpha);
-                const h = this.height / cameraDist * (this.width / (p.displayHeight / c.segment.h));
+
+                const baseline = 0.5 * (this.height + h_coeff * this.state.level.cellSize / cameraDist)
+                const h = h_coeff * c.segment.h / cameraDist;
 
                 p.push();
                 p.translate(this.x, this.y);
-                
+
                 const ai = p5.Vector.dist(c.segment.a, c.point);
                 const ib = p5.Vector.dist(c.segment.b, c.point);
-                
-                const sx = ai / (ai + ib) * c.segment.texture.width;
-                const sw = c.segment.texture.width / this.state.actor.rays.length * ((c.segment.length * p.sqrt(3) / 2) / cameraDist);
 
-                p.imageMode(p.CENTER);
-                p.image(c.segment.texture, offset + 0.5 * w, this.height / 2, w, h, sx, 0, sw, c.segment.texture.height);
+                const sx = ai / (ai + ib) * c.segment.texture.width;
+                const sw = c.segment.texture.width * c.segment.length * p.sqrt(0.75) / (cameraDist * this.state.actor.rays.length);
+
+                p.imageMode(p.CORNER);
+                p.image(c.segment.texture, offset + 0.5 * w, baseline, w, -h, sx, 0, sw, c.segment.texture.height);
                 p.pop();
-            }
+            });
         });
     }
 }
