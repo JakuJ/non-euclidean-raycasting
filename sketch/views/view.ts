@@ -145,7 +145,8 @@ class FirstPersonView extends GameView {
                 const ratio = c.segment.texture.width / c.segment.length;
 
                 const sx = ai * ratio;
-                const sw = c.distance * small_alpha * ratio; // engineering approximation
+                var sw = c.distance * small_alpha * ratio; // engineering approximation
+                sw = p.abs(sw / p.sin(c.segment.angle - this.state.actor.rays[i].angle));
 
                 p.imageMode(p.CORNER);
                 p.image(c.segment.texture, offset, baseline - h, w, h, sx, 0, p.min(sw, c.segment.texture.width - sx), c.segment.texture.height);

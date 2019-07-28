@@ -25,6 +25,10 @@ class Segment implements IShape {
         return p5.Vector.sub(this.b, this.a).mag();
     }
 
+    get angle(): number {
+        return p5.Vector.sub(this.b, this.a).heading();
+    }
+
     public show(): void {
         p.stroke(255, 0, 0);
         p.line(this.a.x, this.a.y, this.b.x, this.b.y);

@@ -242,6 +242,13 @@ var Segment = (function () {
         enumerable: true,
         configurable: true
     });
+    Object.defineProperty(Segment.prototype, "angle", {
+        get: function () {
+            return p5.Vector.sub(this.b, this.a).heading();
+        },
+        enumerable: true,
+        configurable: true
+    });
     Segment.prototype.show = function () {
         p.stroke(255, 0, 0);
         p.line(this.a.x, this.a.y, this.b.x, this.b.y);
@@ -427,6 +434,7 @@ var FirstPersonView = (function (_super) {
                 var ratio = c.segment.texture.width / c.segment.length;
                 var sx = ai * ratio;
                 var sw = c.distance * small_alpha * ratio;
+                sw = p.abs(sw / p.sin(c.segment.angle - this.state.actor.rays[i].angle));
                 p.imageMode(p.CORNER);
                 p.image(c.segment.texture, offset, baseline - h, w, h, sx, 0, p.min(sw, c.segment.texture.width - sx), c.segment.texture.height);
                 p.pop();
