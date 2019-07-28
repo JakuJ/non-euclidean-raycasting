@@ -71,7 +71,7 @@ abstract class GameView extends View {
         this.state = state;
     }
 
-    abstract renderCollisions(collisions: { point: p5.Vector, segment: Segment, distance: number }[][]): void;
+    abstract renderCollisions(collisions: { point: p5.Vector, segment: Segment }[][]): void;
 
     render() {
         this.renderCollisions(this.state.collisions);
@@ -83,7 +83,7 @@ class RaycastView extends GameView {
         super(x, y, width, height, state);
     }
 
-    renderCollisions(collisions: { point: p5.Vector, segment: Segment, distance: number }[][]): void {
+    renderCollisions(collisions: { point: p5.Vector, segment: Segment }[][]): void {
         const scaleX = this.width / (this.state.level.width * this.state.level.cellSize);
         const scaleY = this.height / (this.state.level.height * this.state.level.cellSize);
         const scale = p.min(scaleX, scaleY);
@@ -97,7 +97,7 @@ class RaycastView extends GameView {
 
         p.scale(scale);
         p.strokeWeight(0.5);
-        
+
         // level polygons on a minimap
         for (let i = this.state.level.cells.length - 1; i >= 0; --i) {
             const x = this.state.level.cells[i];
@@ -111,8 +111,8 @@ class RaycastView extends GameView {
 
         for (let i = 0; i < collisions.length; i++) {
             if (collisions[i].length > 0) {
-                const closest = collisions[i].sort((x, y) => x.distance - y.distance)[0].point;
-                p.line(this.state.actor.rays[i].pos.x, this.state.actor.rays[i].pos.y, closest.x, closest.y);
+                const closest = collisions[i].sort((x, y) => p5.Vector.dist(this.state.actor.pos, x.point) - p5.Vector.dist(this.state.actor.pos, y.point))[0].point;
+                p.line(this.state.actor.pos.x, this.state.actor.pos.y, closest.x, closest.y);
             }
         }
 
@@ -130,7 +130,7 @@ class FirstPersonView extends GameView {
     }
 
     // actor's perceived "height" is half the level's cell size
-    renderCollisions(collisions: { point: p5.Vector, segment: Segment, distance: number }[][]): void {
+    renderCollisions(collisions: { point: p5.Vector, segment: Segment }[][]): void {
         p.noStroke();
         p.fill('#87CEEB');
         p.rect(this.x, this.y, this.width, this.height * 0.5);
@@ -142,14 +142,15 @@ class FirstPersonView extends GameView {
         const small_alpha = this.state.actor.fov / this.state.actor.rays.length;
 
         for (let i = 0; i < collisions.length; i++) {
-            const cols = collisions[i].sort((x, y) => (y.distance - x.distance));
+            const cols = collisions[i].sort((x, y) => p5.Vector.dist(this.state.actor.pos, y.point) - p5.Vector.dist(this.state.actor.pos, x.point));
 
             for (let j = 0; j < cols.length; j++) {
                 const c = cols[j];
+                const distance = p5.Vector.dist(this.state.actor.pos, c.point);
 
                 const offset = p.map(this.state.actor.rays[i].angle, this.state.actor.angle - this.state.actor.fov * 0.5, this.state.actor.angle + this.state.actor.fov * 0.5, 0, this.width);
                 const alpha = this.state.actor.rays[i].angle - this.state.actor.angle;
-                const cameraDist = c.distance * p.cos(alpha);
+                const cameraDist = distance * p.cos(alpha);
 
                 const baseline = 0.5 * (this.height + h_coeff * this.state.level.cellSize / cameraDist)
                 const h = h_coeff * c.segment.h / cameraDist;
@@ -157,11 +158,10 @@ class FirstPersonView extends GameView {
                 p.push();
                 p.translate(this.x, this.y);
 
-                const ai = p5.Vector.dist(c.segment.a, c.point);
                 const ratio = c.segment.texture.width / c.segment.length;
 
-                const sx = ai * ratio;
-                var sw = c.distance * small_alpha * ratio; // engineering approximation
+                const sx = p5.Vector.dist(c.segment.a, c.point) * ratio;
+                var sw = distance * small_alpha * ratio; // engineering approximation
                 sw = p.abs(sw / p.sin(c.segment.angle - this.state.actor.rays[i].angle));
 
                 p.imageMode(p.CORNER);

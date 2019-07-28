@@ -10,7 +10,7 @@ var sketch = function (context) {
         var view = new CompositeView([
             new FirstPersonView(0, 0, p.width, p.height, state),
             new RaycastView(0, 0, 200, 200, state),
-            new FPSView(p.width - 100, 30)
+            new FPSView(p.width - 100, 30, 60)
         ]);
         game = new GameController(state, view);
     };
@@ -90,10 +90,9 @@ var Actor = (function () {
     };
     Actor.prototype.update = function () {
         var da = this.fov / this.rays.length;
-        for (var i = 0, a = this.angle - this.fov * 0.5; i < this.rays.length; i++) {
+        for (var i = 0, a = this.angle - this.fov * 0.5; i < this.rays.length; i++, a += da) {
             this.rays[i].pos = this.pos;
             this.rays[i].angle = a;
-            a += da;
         }
     };
     Actor.prototype.raycast = function (shapes) {
@@ -101,13 +100,9 @@ var Actor = (function () {
         for (var i = 0; i < ret.length; i++) {
             var collisions = [];
             for (var j = 0; j < shapes.length; j++) {
-                if (!shapes[j]) {
-                    continue;
-                }
                 var hit = this.rays[i].cast(shapes[j]);
                 if (hit) {
-                    var d = p.dist(this.pos.x, this.pos.y, hit.point.x, hit.point.y);
-                    collisions.push({ point: hit.point, segment: hit.segment, distance: d });
+                    collisions.push({ point: hit.point, segment: hit.segment });
                 }
             }
             ret[i] = collisions;
@@ -160,20 +155,9 @@ var Ray = (function () {
         this.pos = p.createVector(x, y);
         this.angle = a;
     }
-    Object.defineProperty(Ray.prototype, "angle", {
-        get: function () {
-            return this._angle;
-        },
-        set: function (a) {
-            this._angle = a;
-            this.dir = p5.Vector.fromAngle(a);
-        },
-        enumerable: true,
-        configurable: true
-    });
     Ray.prototype.cast = function (shape) {
         var closest;
-        var target;
+        var segment;
         var dist = Infinity;
         var segments = shape.getSegments();
         for (var i = 0; i < segments.length; i++) {
@@ -183,12 +167,12 @@ var Ray = (function () {
                 if (d < dist) {
                     dist = d;
                     closest = pt;
-                    target = segments[i];
+                    segment = segments[i];
                 }
             }
         }
         if (closest) {
-            return { point: closest, segment: target };
+            return { point: closest, segment: segment };
         }
         return null;
     };
@@ -199,15 +183,15 @@ var Ray = (function () {
         var y2 = wall.b.y;
         var x3 = this.pos.x;
         var y3 = this.pos.y;
-        var x4 = this.pos.x + this.dir.x;
-        var y4 = this.pos.y + this.dir.y;
+        var x4 = this.pos.x + p.cos(this.angle);
+        var y4 = this.pos.y + p.sin(this.angle);
         var den = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
         if (den == 0) {
             return null;
         }
         var t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / den;
-        var u = -((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3)) / den;
-        if (t > 0 && t < 1 && u > 0) {
+        var u = ((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3)) / den;
+        if (t > 0 && t < 1 && u < 0) {
             return p.createVector(x1 + t * (x2 - x1), y1 + t * (y2 - y1));
         }
         return null;
@@ -328,13 +312,23 @@ var View = (function () {
 }());
 var FPSView = (function (_super) {
     __extends(FPSView, _super);
-    function FPSView(x, y) {
-        return _super.call(this, x, y, 0, 0) || this;
+    function FPSView(x, y, width) {
+        var _this = _super.call(this, x, y, 0, 0) || this;
+        _this.buffer = new Array(width);
+        _this.width = width;
+        _this.index = 0;
+        _this.value = p.frameRate();
+        return _this;
     }
     FPSView.prototype.render = function () {
+        this.buffer[this.index] = p.frameRate();
+        this.index = (this.index + 1) % this.width;
+        if (this.index == this.width - 1) {
+            this.value = p.round(this.buffer.reduce(function (acc, x) { return acc + x; }) / this.width);
+        }
         p.fill(255, 255, 0);
         p.textSize(24);
-        p.text(p.round(p.frameRate()) + ' FPS', this.x, this.y);
+        p.text(this.value + " FPS", this.x, this.y);
     };
     return FPSView;
 }(View));
@@ -375,6 +369,7 @@ var RaycastView = (function (_super) {
         return _super.call(this, x, y, width, height, state) || this;
     }
     RaycastView.prototype.renderCollisions = function (collisions) {
+        var _this = this;
         var scaleX = this.width / (this.state.level.width * this.state.level.cellSize);
         var scaleY = this.height / (this.state.level.height * this.state.level.cellSize);
         var scale = p.min(scaleX, scaleY);
@@ -394,8 +389,8 @@ var RaycastView = (function (_super) {
         p.stroke(255, 150);
         for (var i = 0; i < collisions.length; i++) {
             if (collisions[i].length > 0) {
-                var closest = collisions[i].sort(function (x, y) { return x.distance - y.distance; })[0].point;
-                p.line(this.state.actor.rays[i].pos.x, this.state.actor.rays[i].pos.y, closest.x, closest.y);
+                var closest = collisions[i].sort(function (x, y) { return p5.Vector.dist(_this.state.actor.pos, x.point) - p5.Vector.dist(_this.state.actor.pos, y.point); })[0].point;
+                p.line(this.state.actor.pos.x, this.state.actor.pos.y, closest.x, closest.y);
             }
         }
         p.stroke(255, 255);
@@ -411,6 +406,7 @@ var FirstPersonView = (function (_super) {
         return _super.call(this, x, y, width, height, state) || this;
     }
     FirstPersonView.prototype.renderCollisions = function (collisions) {
+        var _this = this;
         p.noStroke();
         p.fill('#87CEEB');
         p.rect(this.x, this.y, this.width, this.height * 0.5);
@@ -420,20 +416,20 @@ var FirstPersonView = (function (_super) {
         var h_coeff = this.height * this.width / p.displayHeight;
         var small_alpha = this.state.actor.fov / this.state.actor.rays.length;
         for (var i = 0; i < collisions.length; i++) {
-            var cols = collisions[i].sort(function (x, y) { return (y.distance - x.distance); });
+            var cols = collisions[i].sort(function (x, y) { return p5.Vector.dist(_this.state.actor.pos, y.point) - p5.Vector.dist(_this.state.actor.pos, x.point); });
             for (var j = 0; j < cols.length; j++) {
                 var c = cols[j];
+                var distance = p5.Vector.dist(this.state.actor.pos, c.point);
                 var offset = p.map(this.state.actor.rays[i].angle, this.state.actor.angle - this.state.actor.fov * 0.5, this.state.actor.angle + this.state.actor.fov * 0.5, 0, this.width);
                 var alpha_1 = this.state.actor.rays[i].angle - this.state.actor.angle;
-                var cameraDist = c.distance * p.cos(alpha_1);
+                var cameraDist = distance * p.cos(alpha_1);
                 var baseline = 0.5 * (this.height + h_coeff * this.state.level.cellSize / cameraDist);
                 var h = h_coeff * c.segment.h / cameraDist;
                 p.push();
                 p.translate(this.x, this.y);
-                var ai = p5.Vector.dist(c.segment.a, c.point);
                 var ratio = c.segment.texture.width / c.segment.length;
-                var sx = ai * ratio;
-                var sw = c.distance * small_alpha * ratio;
+                var sx = p5.Vector.dist(c.segment.a, c.point) * ratio;
+                var sw = distance * small_alpha * ratio;
                 sw = p.abs(sw / p.sin(c.segment.angle - this.state.actor.rays[i].angle));
                 p.imageMode(p.CORNER);
                 p.image(c.segment.texture, offset, baseline - h, w, h, sx, 0, p.min(sw, c.segment.texture.width - sx), c.segment.texture.height);

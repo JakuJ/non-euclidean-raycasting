@@ -18,6 +18,7 @@ class Actor {
     move(dx: number, dy: number) {
         const front = p5.Vector.fromAngle(this.angle);
         front.setMag(dx);
+
         const side = p5.Vector.fromAngle(this.angle + p.HALF_PI);
         side.setMag(dy);
 
@@ -26,29 +27,22 @@ class Actor {
 
     update() {
         const da = this.fov / this.rays.length;
-        for (let i = 0, a = this.angle - this.fov * 0.5; i < this.rays.length; i++) {
+        for (let i = 0, a = this.angle - this.fov * 0.5; i < this.rays.length; i++ , a += da) {
             this.rays[i].pos = this.pos;
             this.rays[i].angle = a;
-
-            a += da;
         }
     }
 
-    raycast(shapes: IShape[]): { point: p5.Vector, segment: Segment, distance: number }[][] {
-        var ret = new Array<Array<{ point: p5.Vector, segment: Segment, distance: number }>>(this.rays.length);
+    raycast(shapes: IShape[]): { point: p5.Vector, segment: Segment }[][] {
+        var ret = new Array<Array<{ point: p5.Vector, segment: Segment }>>(this.rays.length);
 
         for (let i = 0; i < ret.length; i++) {
-            var collisions: { point: p5.Vector, segment: Segment, distance: number }[] = [];
+            var collisions: { point: p5.Vector, segment: Segment }[] = [];
 
             for (let j = 0; j < shapes.length; j++) {
-                if (!shapes[j]) {
-                    continue;
-                }
                 const hit = this.rays[i].cast(shapes[j]);
                 if (hit) {
-                    const d = p.dist(this.pos.x, this.pos.y, hit.point.x, hit.point.y);
-
-                    collisions.push({ point: hit.point, segment: hit.segment, distance: d });
+                    collisions.push({ point: hit.point, segment: hit.segment });
                 }
             }
             ret[i] = collisions;

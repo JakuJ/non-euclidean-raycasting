@@ -1,7 +1,7 @@
 class GameState {
     actor: Actor;
     level: Level;
-    collisions: { point: p5.Vector, segment: Segment, distance: number }[][];
+    collisions: { point: p5.Vector, segment: Segment }[][];
 
     constructor(width: number, height: number) {
         this.collisions = [];
