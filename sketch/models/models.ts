@@ -13,7 +13,7 @@ class GameState {
             '../../assets/textures/archs.bmp',
             '../../assets/textures/grid.jpeg'
         ].map(x => p.loadImage(x));
-        
+
         const a = this.level.cellSize;
 
         // Initialize the level with random polygons

@@ -14,7 +14,7 @@ class GameController {
         p.keyPressed = () => {
             this.setMove(p.keyCode, true);
         }
-    
+
         p.keyReleased = () => {
             this.setMove(p.keyCode, false);
         }
@@ -22,7 +22,7 @@ class GameController {
 
     update() {
         const step = this.isShift ? 2 : 1;
-        
+
         if (this.isUp) {
             this.state.actor.move(step, 0);
         }
@@ -40,7 +40,7 @@ class GameController {
         this.view.render();
     }
 
-    setMove (c: number, b: boolean) {
+    setMove(c: number, b: boolean) {
         switch (c) {
             case 87:
                 return this.isUp = b;

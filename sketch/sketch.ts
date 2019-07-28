@@ -14,7 +14,7 @@ var sketch = (context: p5) => {
         const view = new CompositeView([
             new FirstPersonView(0, 0, p.width, p.height, state),
             new RaycastView(0, 0, 200, 200, state),
-            new FPSView(p.width - 100, 30)
+            new FPSView(p.width - 100, 30, 60)
         ]);
 
         // * SPLIT-SCREEN VIEW

@@ -15,14 +15,30 @@ abstract class View {
 }
 
 class FPSView extends View {
-    constructor(x: number, y: number) {
+    buffer: number[];
+    width: number;
+    index: number;
+    value: number;
+
+    constructor(x: number, y: number, width: number) {
         super(x, y, 0, 0);
+        this.buffer = new Array<number>(width);
+        this.width = width;
+        this.index = 0;
+        this.value = p.frameRate();
     }
 
     render(): void {
+        this.buffer[this.index] = p.frameRate();
+        this.index = (this.index + 1) % this.width;
+
+        if (this.index == this.width - 1) {
+            this.value = p.round(this.buffer.reduce((acc, x) => acc + x) / this.width);
+        }
+
         p.fill(255, 255, 0);
         p.textSize(24);
-        p.text(p.round(p.frameRate()) + ' FPS', this.x, this.y);
+        p.text(`${this.value} FPS`, this.x, this.y);
     }
 }
 

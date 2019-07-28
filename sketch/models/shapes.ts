@@ -45,7 +45,7 @@ class Polygon implements IShape {
         this.x = p.min(segments.map(s => p.min(s.a.x, s.b.x)));
         this.y = p.min(segments.map(s => p.min(s.a.y, s.b.y)));
         this.h = p.max(segments.map(s => s.h));
-        
+
         this.segments = segments;
     }
 

@@ -1,25 +1,15 @@
 class Ray {
     public pos: p5.Vector;
-    public dir: p5.Vector;
-    private _angle: number;
+    public angle: number;
 
     constructor(x: number, y: number, a: number) {
         this.pos = p.createVector(x, y);
         this.angle = a;
     }
 
-    set angle(a: number) {
-        this._angle = a;
-        this.dir = p5.Vector.fromAngle(a);
-    }
-
-    get angle() {
-        return this._angle;
-    }
-
     cast(shape: IShape) {
         var closest: p5.Vector;
-        var target: Segment;
+        var segment: Segment;
         var dist = Infinity;
 
         const segments = shape.getSegments();
@@ -30,12 +20,13 @@ class Ray {
                 if (d < dist) {
                     dist = d;
                     closest = pt;
-                    target = segments[i];
+                    segment = segments[i];
                 }
             }
         }
+
         if (closest) {
-            return { point: closest, segment: target };
+            return { point: closest, segment: segment };
         }
 
         return null;
@@ -49,8 +40,8 @@ class Ray {
 
         const x3 = this.pos.x;
         const y3 = this.pos.y;
-        const x4 = this.pos.x + this.dir.x;
-        const y4 = this.pos.y + this.dir.y;
+        const x4 = this.pos.x + p.cos(this.angle);
+        const y4 = this.pos.y + p.sin(this.angle);
 
         const den = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
         if (den == 0) {
@@ -58,9 +49,9 @@ class Ray {
         }
 
         const t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / den;
-        const u = -((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3)) / den;
+        const u = ((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3)) / den;
 
-        if (t > 0 && t < 1 && u > 0) {
+        if (t > 0 && t < 1 && u < 0) {
             return p.createVector(x1 + t * (x2 - x1), y1 + t * (y2 - y1));
         }
 
