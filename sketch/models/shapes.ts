@@ -14,7 +14,7 @@ class Segment implements IShape {
         this.b = p.createVector(x2, y2);
         this.h = h;
 
-        this.texture = tex || p.loadImage('../../assets/textures/wall.bmp');        
+        this.texture = tex || p.loadImage('../../assets/textures/wall.bmp');
     }
 
     public getSegments(): Segment[] {
@@ -60,7 +60,7 @@ class Polygon implements IShape {
 class RegularPolygon extends Polygon {
     constructor(x: number, y: number, n: number, r: number, h: number, tex: p5.Image) {
         var segments: Segment[] = [];
-        
+
         for (let i = 0; i < n; i++) {
             const x1 = r * p.cos(p.TWO_PI * i / n) + x;
             const y1 = r * p.sin(p.TWO_PI * i / n) + y;
@@ -68,42 +68,27 @@ class RegularPolygon extends Polygon {
             const x2 = r * p.cos(p.TWO_PI * ((i + 1) % n) / n) + x;
             const y2 = r * p.sin(p.TWO_PI * ((i + 1) % n) / n) + y;
 
-            segments.push(new Segment(x1, y1, x2, y2, h, tex));
+            segments.push(new Segment(x2, y2, x1, y1, h, tex));
         }
 
         super(segments);
     }
 }
 
-class Rectangle implements IShape {
-    protected position: p5.Vector;
-    protected a: number;
-    protected b: number;
-    protected h: number;
-    protected texture: p5.Image;
-    protected segments: Segment[];
-
+class Rectangle extends Polygon {
     constructor(x: number, y: number, a: number, b: number, h: number) {
-        this.position = p.createVector(x, y);
-        this.a = a;
-        this.b = b;
-        this.h = h;
-
-        this.texture = p.loadImage(`../../assets/textures/${p.random() < 0.5 ? 'archs' : 'wall'}.bmp`);
-
-        this.segments = new Array(4);
-        this.segments[0] = new Segment(this.position.x, this.position.y, this.position.x + this.a, this.position.y, this.h, this.texture);
-        this.segments[1] = new Segment(this.position.x, this.position.y, this.position.x, this.position.y + this.b, this.h, this.texture);
-        this.segments[2] = new Segment(this.position.x + this.a, this.position.y, this.position.x + this.a, this.position.y + this.b, this.h, this.texture);
-        this.segments[3] = new Segment(this.position.x, this.position.y + this.b, this.position.x + this.a, this.position.y + this.b, this.h, this.texture);
+        const texture = p.loadImage(`../../assets/textures/${p.random() < 0.5 ? 'archs.bmp' : 'grid.jpeg'}`);
+        const segments = [
+            new Segment(x, y, x + a, y, h, texture),
+            new Segment(x + a, y, x + a, y + b, h, texture),
+            new Segment(x + a, y + b, x, y + b, h, texture),
+            new Segment(x, y + b, x, y, h, texture),
+        ]
+        super(segments);
     }
 
     public getSegments(): Segment[] {
         return this.segments;
-    }
-
-    public show() {
-        p.image(this.texture, this.position.x, this.position.y, this.a, this.b);
     }
 }
 

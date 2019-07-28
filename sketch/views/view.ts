@@ -80,7 +80,9 @@ class RaycastView extends GameView {
         p.rect(0, 0, this.width, this.height);
 
         p.scale(scale);
-
+        p.strokeWeight(0.5);
+        
+        // level polygons on a minimap
         for (let i = this.state.level.cells.length - 1; i >= 0; --i) {
             const x = this.state.level.cells[i];
             if (x) {
@@ -88,7 +90,7 @@ class RaycastView extends GameView {
             }
         }
 
-        p.strokeWeight(0.5);
+        p.strokeWeight(0.25);
         p.stroke(255, 150);
 
         for (let i = 0; i < collisions.length; i++) {
@@ -98,6 +100,7 @@ class RaycastView extends GameView {
             }
         }
 
+        // player (dot)
         p.stroke(255, 255);
         p.fill(255);
         p.ellipse(this.state.actor.pos.x, this.state.actor.pos.y, 20 / scale, 20 / scale);
@@ -120,6 +123,7 @@ class FirstPersonView extends GameView {
 
         const w = this.width / this.state.actor.rays.length;
         const h_coeff = this.height * this.width / p.displayHeight;
+        const small_alpha = this.state.actor.fov / this.state.actor.rays.length;
 
         for (let i = 0; i < collisions.length; i++) {
             const cols = collisions[i].sort((x, y) => (y.distance - x.distance));
@@ -138,13 +142,13 @@ class FirstPersonView extends GameView {
                 p.translate(this.x, this.y);
 
                 const ai = p5.Vector.dist(c.segment.a, c.point);
-                const ib = p5.Vector.dist(c.segment.b, c.point);
+                const ratio = c.segment.texture.width / c.segment.length;
 
-                const sx = ai / (ai + ib) * c.segment.texture.width;
-                const sw = c.segment.texture.width * c.segment.length * p.sqrt(0.75) / (cameraDist * this.state.actor.rays.length);
+                const sx = ai * ratio;
+                const sw = c.distance * small_alpha * ratio; // engineering approximation
 
                 p.imageMode(p.CORNER);
-                p.image(c.segment.texture, offset + 0.5 * w, baseline - h, w, h, sx, 0, sw, c.segment.texture.height);
+                p.image(c.segment.texture, offset, baseline - h, w, h, sx, 0, p.min(sw, c.segment.texture.width - sx), c.segment.texture.height);
                 p.pop();
             }
         }

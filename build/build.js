@@ -133,12 +133,16 @@ var GameState = (function () {
         this.collisions = [];
         this.level = new Level(width, height);
         this.actor = new Actor(this.level.width * this.level.cellSize / 2, this.level.height * this.level.cellSize / 2);
-        var textures = ['../../assets/textures/wall.bmp', '../../assets/textures/archs.bmp'].map(function (x) { return p.loadImage(x); });
+        var textures = [
+            '../../assets/textures/wall.bmp',
+            '../../assets/textures/archs.bmp',
+            '../../assets/textures/grid.jpeg'
+        ].map(function (x) { return p.loadImage(x); });
         var a = this.level.cellSize;
         for (var x = 0; x < this.level.width; x++) {
             for (var y = 0; y < this.level.height; y++) {
                 if (p.abs(x - this.level.width / 2) > p.floor(width / 6) && p.random() < 0.1) {
-                    var magic = (x + y) % 2;
+                    var magic = (x + y) % textures.length;
                     var h = a * (1 + p.random());
                     this.level.add(new RegularPolygon(x * a, y * a, p.floor(p.random() * 3) + 3, a / 2, h, textures[magic]));
                 }
@@ -273,34 +277,32 @@ var RegularPolygon = (function (_super) {
             var y1 = r * p.sin(p.TWO_PI * i / n) + y;
             var x2 = r * p.cos(p.TWO_PI * ((i + 1) % n) / n) + x;
             var y2 = r * p.sin(p.TWO_PI * ((i + 1) % n) / n) + y;
-            segments.push(new Segment(x1, y1, x2, y2, h, tex));
+            segments.push(new Segment(x2, y2, x1, y1, h, tex));
         }
         _this = _super.call(this, segments) || this;
         return _this;
     }
     return RegularPolygon;
 }(Polygon));
-var Rectangle = (function () {
+var Rectangle = (function (_super) {
+    __extends(Rectangle, _super);
     function Rectangle(x, y, a, b, h) {
-        this.position = p.createVector(x, y);
-        this.a = a;
-        this.b = b;
-        this.h = h;
-        this.texture = p.loadImage("../../assets/textures/" + (p.random() < 0.5 ? 'archs' : 'wall') + ".bmp");
-        this.segments = new Array(4);
-        this.segments[0] = new Segment(this.position.x, this.position.y, this.position.x + this.a, this.position.y, this.h, this.texture);
-        this.segments[1] = new Segment(this.position.x, this.position.y, this.position.x, this.position.y + this.b, this.h, this.texture);
-        this.segments[2] = new Segment(this.position.x + this.a, this.position.y, this.position.x + this.a, this.position.y + this.b, this.h, this.texture);
-        this.segments[3] = new Segment(this.position.x, this.position.y + this.b, this.position.x + this.a, this.position.y + this.b, this.h, this.texture);
+        var _this = this;
+        var texture = p.loadImage("../../assets/textures/" + (p.random() < 0.5 ? 'archs.bmp' : 'grid.jpeg'));
+        var segments = [
+            new Segment(x, y, x + a, y, h, texture),
+            new Segment(x + a, y, x + a, y + b, h, texture),
+            new Segment(x + a, y + b, x, y + b, h, texture),
+            new Segment(x, y + b, x, y, h, texture),
+        ];
+        _this = _super.call(this, segments) || this;
+        return _this;
     }
     Rectangle.prototype.getSegments = function () {
         return this.segments;
     };
-    Rectangle.prototype.show = function () {
-        p.image(this.texture, this.position.x, this.position.y, this.a, this.b);
-    };
     return Rectangle;
-}());
+}(Polygon));
 var Square = (function (_super) {
     __extends(Square, _super);
     function Square(x, y, a) {
@@ -374,13 +376,14 @@ var RaycastView = (function (_super) {
         p.fill(0);
         p.rect(0, 0, this.width, this.height);
         p.scale(scale);
+        p.strokeWeight(0.5);
         for (var i = this.state.level.cells.length - 1; i >= 0; --i) {
             var x = this.state.level.cells[i];
             if (x) {
                 x.show();
             }
         }
-        p.strokeWeight(0.5);
+        p.strokeWeight(0.25);
         p.stroke(255, 150);
         for (var i = 0; i < collisions.length; i++) {
             if (collisions[i].length > 0) {
@@ -408,6 +411,7 @@ var FirstPersonView = (function (_super) {
         p.rect(this.x, this.y + this.height * 0.5, this.width, this.height * 0.5);
         var w = this.width / this.state.actor.rays.length;
         var h_coeff = this.height * this.width / p.displayHeight;
+        var small_alpha = this.state.actor.fov / this.state.actor.rays.length;
         for (var i = 0; i < collisions.length; i++) {
             var cols = collisions[i].sort(function (x, y) { return (y.distance - x.distance); });
             for (var j = 0; j < cols.length; j++) {
@@ -420,11 +424,11 @@ var FirstPersonView = (function (_super) {
                 p.push();
                 p.translate(this.x, this.y);
                 var ai = p5.Vector.dist(c.segment.a, c.point);
-                var ib = p5.Vector.dist(c.segment.b, c.point);
-                var sx = ai / (ai + ib) * c.segment.texture.width;
-                var sw = c.segment.texture.width * c.segment.length * p.sqrt(0.75) / (cameraDist * this.state.actor.rays.length);
+                var ratio = c.segment.texture.width / c.segment.length;
+                var sx = ai * ratio;
+                var sw = c.distance * small_alpha * ratio;
                 p.imageMode(p.CORNER);
-                p.image(c.segment.texture, offset + 0.5 * w, baseline - h, w, h, sx, 0, sw, c.segment.texture.height);
+                p.image(c.segment.texture, offset, baseline - h, w, h, sx, 0, p.min(sw, c.segment.texture.width - sx), c.segment.texture.height);
                 p.pop();
             }
         }
